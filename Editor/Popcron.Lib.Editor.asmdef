@@ -1,0 +1,20 @@
+{
+    "name": "Popcron.Lib.Editor",
+    "rootNamespace": "Popcron",
+    "references": [
+        "GUID:b61fa299c2bfa814db163cdc3e5065b3",
+        "GUID:6d5fa3978917b1341877796da8848c81",
+        "GUID:adeed45fbf790a741a8165b6faf3948c"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

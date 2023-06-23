@@ -1,0 +1,12 @@
+{
+  "name": "com.popcron-games.lib",
+  "displayName": "Popcron Lib",
+  "version": "1.0.0",
+  "dependencies": {
+    "com.unity.mathematics": "1.2.6"
+  },
+  "author": {
+    "name": "popcron"
+  },
+  "unity": "2020.2"
+}
