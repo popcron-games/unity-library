@@ -115,7 +115,8 @@ if (Everything.TryGetAtPath("inventory/item1", out object? item))
 
 }
 ```
-### Inputs to initialization similar to new(data) pattern
+### Providing inputs to code before instantiation
+This is a functionality similar to being able to provide data to constructors when creating non Unity objects.
 ```csharp
 public class Player : CustomMonoBehaviour, IInstantiateWithInput<Player.Settings>
 {
