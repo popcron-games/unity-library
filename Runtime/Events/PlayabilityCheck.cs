@@ -30,28 +30,38 @@ namespace Popcron
             issues.Add(new Issue(context, message.ToString(), true, new StackTrace(skipFrames, needFileInfo)));
         }
 
-        public void CantIfNull<T>(T value, ReadOnlySpan<char> message)
+        public void CantIfNull<T>(T value, string message)
         {
             if (value == null)
             {
-                issues.Add(new Issue(null, message.ToString(), false, new StackTrace(skipFrames, needFileInfo)));
+                issues.Add(new Issue(null, message, false, new StackTrace(skipFrames, needFileInfo)));
             }
             else if (value is Object unityObject && unityObject == null)
             {
-                issues.Add(new Issue(null, message.ToString(), false, new StackTrace(skipFrames, needFileInfo)));
+                issues.Add(new Issue(null, message, false, new StackTrace(skipFrames, needFileInfo)));
+            }
+        }
+
+        public void CantIfNull<T>(T value, ReadOnlySpan<char> message)
+        {
+            CantIfNull(value, message.ToString());
+        }
+
+        public void CantIfNull<T>(T value, string message, Object context)
+        {
+            if (value == null)
+            {
+                issues.Add(new Issue(context, message, true, new StackTrace(skipFrames, needFileInfo)));
+            }
+            else if (value is Object unityObject && unityObject == null)
+            {
+                issues.Add(new Issue(context, message, true, new StackTrace(skipFrames, needFileInfo)));
             }
         }
 
         public void CantIfNull<T>(T value, ReadOnlySpan<char> message, Object context)
         {
-            if (value == null)
-            {
-                issues.Add(new Issue(context, message.ToString(), true, new StackTrace(skipFrames, needFileInfo)));
-            }
-            else if (value is Object unityObject && unityObject == null)
-            {
-                issues.Add(new Issue(context, message.ToString(), true, new StackTrace(skipFrames, needFileInfo)));
-            }
+            CantIfNull(value, message.ToString(), context);
         }
 
         public void CantIfFalse(bool value, ReadOnlySpan<char> message)
