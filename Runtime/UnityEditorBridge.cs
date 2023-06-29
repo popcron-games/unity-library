@@ -12,6 +12,9 @@ using UnityEditor;
 
 namespace Popcron
 {
+    /// <summary>
+    /// Provides access to some of the AssetDatabase API at runtime without the need for compiler regions.
+    /// </summary>
     public static class UnityEditorBridge
     {
         private static readonly StringBuilder builder = new StringBuilder();
@@ -239,13 +242,13 @@ namespace Popcron
             return false;
         }
 
-        public static IReadOnlyList<T> FindAssets<T>() where T : Object
+        public static List<T> FindAssets<T>() where T : Object
         {
             builder.Clear();
             builder.Append("t:");
             builder.Append(typeof(T).FullName);
             string[] guids = FindAssets(builder.ToString());
-            RecycledList<T> list = new RecycledList<T>(guids.Length);
+            List<T> list = new List<T>(guids.Length);
             foreach (var guid in guids)
             {
                 string path = GUIDToAssetPath(guid);
@@ -258,13 +261,13 @@ namespace Popcron
             return list;
         }
 
-        public static IReadOnlyList<Object> FindAssets(Type type)
+        public static List<Object> FindAssets(Type type)
         {
             builder.Clear();
             builder.Append("t:");
             builder.Append(type.FullName);
             string[] guids = FindAssets(builder.ToString());
-            RecycledList<Object> list = new RecycledList<Object>(guids.Length);
+            List<Object> list = new List<Object>(guids.Length);
             foreach (string guid in guids)
             {
                 string path = GUIDToAssetPath(guid);

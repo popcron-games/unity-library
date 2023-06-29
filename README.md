@@ -1,6 +1,10 @@
 # Lib
 Encourages a more functional approach to Unity development. My personal favourite approach if not ECS.
 
+### Installation
+1. Use `https://github.com/popcron-games/com.popcron-games.lib.git` when adding as a package
+2. If you have compiler errors then you're probably missing required libraries, these are available as a sample
+
 ### Retrieving a list of all instances by assignable types
 ```csharp
 public class Player : CustomMonoBehaviour, IPlayer
@@ -115,39 +119,6 @@ if (Everything.TryGetAtPath("inventory/item1", out object? item))
 
 }
 ```
-### Providing inputs to code before instantiation
-This is a functionality similar to being able to provide data to constructors when creating non Unity objects.
-```csharp
-public class Player : CustomMonoBehaviour, IInstantiateWithInput<Player.Settings>
-{
-    [SerializeField]
-    private Settings settings;
-
-    [Serializable]
-    public struct Settings
-    {
-        public int characterId;
-
-        public Settings(int characterId)
-        {
-            this.characterId = characterId;
-        }
-    }
-
-    void IInstantiateWithInput<Player.Settings>.Pass(Player.Settings input)
-    {
-        settings = input;
-    }
-
-    protected override void OnEnable()
-    {
-        //after settings is set
-    }
-}
-
-Player.Settings input = new Player.Settings(1);
-Player player = CustomMonoBehaviour.InstantiateWithInput<Player, Player.Settings>(input);
-```
 ### Available events
 There are some events already included, its not exhaustive.
 * `AboutToStartPlaying` - Dispatched before play mode starts, as if it was called before you pressed the play button
@@ -173,9 +144,9 @@ If you see a set of different methods and functionalities to have that the custo
 The custom types will also dispatch a `ValidateEvent` to themselves when `OnValidate()` is meant to happen.
 
 ### Iterating using generics
-The `Everything.GetAllThatAre<T>()` generic method currently has a good decent bandaid over its design but a bandaid nonetheless. The internal collections stores a list of `object` instances but the user is expecting a `IReadOnlyCollection<T>` the collection must mean that code should somehow transform from `object[]` to `T[]`. To accomplish this, there is a `RecycledList<T>` that is reliant on `ArrayPool<T>` to rent and return buffers safely at the end of the frame before the next.
+The `Everything.GetAllThatAre<T>()` generic method currently has a good decent bandaid over its design but a bandaid nonetheless. The internal collections stores a list of `object` instances but the user is expecting a `IReadOnlyCollection<T>` the collection must mean that code should somehow transform from `object[]` to `T[]`. Basically this method will cost an allocation in the same way `ArrayPool<T>.Shared` invokes allocations.
 
-Alternatively, there is a `ForEachInAll<T>()` method that avoids this problem, or `Everything.GetAllThatAre(typeof(T))` which will return a collection of objects from where you can parse/cast yourself.
+Alternatively, there is a `ForEachInAll<T>()` method that avoids this problem, or `Everything.GetAllThatAre(typeof(T))` which will return the internal collection, from where you can parse/cast yourself.
 
 ### Non Unity objects
 These cases also work, but the instance must be added and removed manually by you.

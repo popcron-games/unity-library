@@ -8,5 +8,12 @@
   "author": {
     "name": "popcron"
   },
-  "unity": "2020.2"
+  "unity": "2020.2",
+  "samples": [
+    {
+      "displayName": "Required Libraries",
+      "description": "Contains .dll's of required libraries. System.Buffers, System.Memory, System.Runtime.CompilerServices.Unsafe",
+      "path": "Samples~/Plugins"
+    }
+  ]
 }

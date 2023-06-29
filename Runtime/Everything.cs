@@ -1,8 +1,9 @@
 ﻿#nullable enable
 using System;
+using System.Buffers;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace Popcron
@@ -21,19 +22,23 @@ namespace Popcron
         {
             get
             {
-                int length = unityObjects.Count + objects.Count + 32;
-                RecycledList<object> all = new RecycledList<object>(length);
+                object[] buffer = ArrayPool<object>.Shared.Rent(unityObjects.Count + objects.Count + 32);
+                int length = 0;
                 foreach (Object obj in unityObjects)
                 {
-                    all.AddWithoutResize(obj);
+                    buffer[length] = obj;
+                    length++;
                 }
 
                 foreach (IUnityObject unityObj in objects)
                 {
-                    all.AddWithoutResize(unityObj);
+                    buffer[length] = unityObj;
+                    length++;
                 }
 
-                return all.AsSpan();
+                ReadOnlySpan<object> span = new ReadOnlySpan<object>(buffer, 0, length);
+                ArrayPool<object>.Shared.Return(buffer);
+                return span;
             }
         }
 
@@ -148,9 +153,16 @@ namespace Popcron
         private static void RemoveInternally(object obj)
         {
             Type type = obj.GetType();
-            if (assignableObjects.TryGetValue(CalculateHash(type), out var objects))
+            int typeIdentifier = CalculateHash(type);
+            if (typeToAssignableTypes.TryGetValue(typeIdentifier, out HashSet<int>? assignableTypes))
             {
-                objects.Remove(obj);
+                foreach (var assignableType in assignableTypes)
+                {
+                    if (assignableObjects.TryGetValue(assignableType, out var objects))
+                    {
+                        objects.Remove(obj);
+                    }
+                }
             }
         }
 
@@ -166,20 +178,24 @@ namespace Popcron
             }
         }
 
-        public static IReadOnlyCollection<T> GetAllThatAre<T>()
+        public static ReadOnlySpan<T> GetAllThatAre<T>()
         {
             if (assignableObjects.TryGetValue(CalculateHash<T>(), out var objects))
             {
-                RecycledList<T> temp = new RecycledList<T>(objects.Count);
+                T[] pool = ArrayPool<T>.Shared.Rent(objects.Count);
+                int length = 0;
                 foreach (var obj in objects)
                 {
                     if (obj is T t)
                     {
-                        temp.Add(t);
+                        pool[length] = t;
+                        length++;
                     }
                 }
 
-                return temp;
+                ReadOnlySpan<T> span = new ReadOnlySpan<T>(pool, 0, length);
+                ArrayPool<T>.Shared.Return(pool);
+                return span;
             }
             else
             {
@@ -215,6 +231,22 @@ namespace Popcron
 
             obj = default!;
             return false;
+        }
+
+        /// <summary>
+        /// Returns the first instance of this type.
+        /// </summary>
+        public static object GetFirst(Type type)
+        {
+            return assignableObjects[CalculateHash(type)].First();
+        }
+
+        /// <summary>
+        /// Returns the first instance of this type.
+        /// </summary>
+        public static T GetFirst<T>()
+        {
+            return (T)assignableObjects[CalculateHash<T>()].First();
         }
 
         /// <summary>
