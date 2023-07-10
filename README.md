@@ -1,5 +1,5 @@
 # Lib
-Encourages a more functional approach to Unity development. My personal favourite approach if not ECS.
+Encourages a more functional approach to Unity development
 
 ### Installation
 1. Use `https://github.com/popcron-games/com.popcron-games.lib.git` when adding as a package
