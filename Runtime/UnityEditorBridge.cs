@@ -308,6 +308,8 @@ namespace Popcron
         {
 #if UNITY_EDITOR
             return PrefabUtility.GetCorrespondingObjectFromOriginalSource(component);
+#else
+            return component;
 #endif
         }
 
@@ -351,13 +353,8 @@ namespace Popcron
         {
 #if UNITY_EDITOR
             return ObjectNames.NicifyVariableName(v) ?? string.Empty;
-#endif
-        }
-
-        public static string NicifyVariableName(ReadOnlySpan<char> v)
-        {
-#if UNITY_EDITOR
-            return ObjectNames.NicifyVariableName(v.ToString()) ?? string.Empty;
+#else
+            return v ?? string.Empty;
 #endif
         }
     }

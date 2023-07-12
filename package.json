@@ -1,7 +1,7 @@
 {
   "name": "com.popcron-games.lib",
   "displayName": "Popcron Lib",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "com.unity.mathematics": "1.2.6"
   },
