@@ -1,31 +1,20 @@
 #nullable enable
 using Popcron;
+using Popcron.Incomplete;
 using UnityEngine;
 
-public class CustomMonoBehaviour : SealableMonoBehaviour
+public abstract class MonoBehaviour : SealableMonoBehaviour
 {
     public MonoBehaviourFlags Flags { get; private set; }
 
-    protected sealed override void OnEnable()
+    protected override void OnEnable()
     {
-        OnEnabled();
         Everything.Add(this);
     }
 
-    protected sealed override void OnDisable()
+    protected override void OnDisable()
     {
         Everything.Remove(this);
-        OnDisabled();
-    }
-
-    protected sealed override void Awake()
-    {
-        OnAwake();
-    }
-
-    protected sealed override void Start()
-    {
-        OnStart();
     }
 
     protected sealed override void OnValidate()
@@ -49,9 +38,4 @@ public class CustomMonoBehaviour : SealableMonoBehaviour
 
         Flags &= ~MonoBehaviourFlags.InReset;
     }
-
-    protected virtual void OnDisabled() { }
-    protected virtual void OnEnabled() { }
-    protected virtual void OnAwake() { }
-    protected virtual void OnStart() { }
 }

@@ -1,4 +1,5 @@
 ﻿#nullable enable
+using Popcron.Incomplete;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -104,26 +105,26 @@ namespace Popcron
         }
 
         [ExecuteAlways]
-        public sealed class GUIEventDispatcher : CustomMonoBehaviour, IListener<UpdateEvent>
+        public sealed class GUIEventDispatcher : SealableMonoBehaviour, IListener<UpdateEvent>
         {
             private static GUIEventDispatcher? instance;
 
-            protected override void OnEnabled()
+            protected override sealed void OnEnable()
             {
                 if (instance != null)
                 {
                     Die();
                     return;
                 }
-                
+
                 instance = this;
             }
 
-            void IListener<UpdateEvent>.OnEvent(in UpdateEvent e)
+            protected override sealed void OnDisable()
             {
-                if (this != instance)
+                if (instance != null && instance.gameObject == gameObject)
                 {
-                    Die();
+                    instance = null;
                 }
             }
 
@@ -139,14 +140,6 @@ namespace Popcron
                 }
             }
 
-            protected override void OnDisabled()
-            {
-                if (instance != null && instance.gameObject == gameObject)
-                {
-                    instance = null;
-                }
-            }
-
             private void Die()
             {
                 if (this != null)
@@ -159,6 +152,14 @@ namespace Popcron
                     {
                         DestroyImmediate(gameObject);
                     }
+                }
+            }
+
+            void IListener<UpdateEvent>.OnEvent(UpdateEvent e)
+            {
+                if (this != instance)
+                {
+                    Die();
                 }
             }
         }

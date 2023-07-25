@@ -1,25 +1,21 @@
 ﻿#nullable enable
 using Popcron;
+using Popcron.Incomplete;
 using UnityEngine;
 
-public class CustomScriptableObject : SealableScriptableObject
+public abstract class ScriptableObject : SealableScriptableObject
 {
     public MonoBehaviourFlags Flags { get; private set; }
 
-    protected sealed override void OnEnable()
+    protected override void OnEnable()
     {
-        OnEnabled();
         Everything.Add(this);
     }
 
-    protected sealed override void OnDisable()
+    protected override void OnDisable()
     {
         Everything.Remove(this);
-        OnDisabled();
     }
-
-    protected virtual void OnEnabled() { }
-    protected virtual void OnDisabled() { }
 
     protected sealed override void OnValidate()
     {

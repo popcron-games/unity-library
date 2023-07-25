@@ -1,7 +1,7 @@
 ﻿#nullable enable
 using UnityEngine;
 
-namespace Popcron
+namespace Popcron.Incomplete
 {
     public abstract class SealableScriptableObject : ScriptableObject
     {

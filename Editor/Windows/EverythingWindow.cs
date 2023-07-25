@@ -1,11 +1,12 @@
 ﻿#nullable enable
+using Popcron.Incomplete;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace Popcron
 {
-    public class EverythingWindow : CustomEditorWindow
+    public class EverythingWindow : SealableEditorWindow
     {
         public const string Title = "Everything";
 

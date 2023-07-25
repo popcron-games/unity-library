@@ -4,15 +4,17 @@ Encourages a more functional approach to Unity development
 ### Installation
 1. Use `https://github.com/popcron-games/com.popcron-games.lib.git` when adding as a package
 2. If you have compiler errors then you're probably missing required libraries, these are available as a sample
+3. To get started, import the `Base Types` samples from the package manager window.
+    This sample will import new `MonoBehaviour` and `ScriptableObject` in a global namespace, which will act as new base type with overridable base methods. The `OnUpdate` and `OnFixedUpdate` but not `Awake` and `Start` kind of methods aren't provided as virtual methods, this is because these methods have an alternative in the form of events by implementing the `IListener<UpdateEvent>` interface on your types, this is to take advantage of an [optimization that skips the `Update` method](https://blog.unity.com/engine-platform/10000-update-calls). Virtual methods are expected to have the base method called to propagate their behaviour correctly especially if it's the `OnEnable` and `OnDisable` methods, if you want to protect the inherited behaviour you can sealed the methods and call different virtual methods yourself (into OnEnable**D** and OnDisable**D**).
 
 ### Retrieving a list of all instances by assignable types
 ```csharp
-public class Player : CustomMonoBehaviour, IPlayer
+public class Player : MonoBehaviour, IPlayer
 {
 
 }
 
-public class SomethingElse : CustomMonoBehaviour, IPlayer
+public class SomethingElse : MonoBehaviour, IPlayer
 {
 
 }
@@ -41,7 +43,7 @@ public void Jump()
 ```
 ### Listening to events
 ```csharp
-public class PlayerSounds : CustomMonoBehaviour, IListener<PlayerHasJumped>
+public class PlayerSounds : MonoBehaviour, IListener<PlayerHasJumped>
 {
     void IListener<PlayerHasJumped>.OnEvent(PlayerHasJumped message)
     {
@@ -51,7 +53,7 @@ public class PlayerSounds : CustomMonoBehaviour, IListener<PlayerHasJumped>
 ```
 ### Preventing play mode because of user defined reasons (validation)
 ```csharp
-public class Player : CustomMonoBehaviour, IListener<PlayabilityCheck>
+public class Player : MonoBehaviour, IListener<PlayabilityCheck>
 {
     public string? ability;
 
@@ -64,7 +66,7 @@ public class Player : CustomMonoBehaviour, IListener<PlayabilityCheck>
 ### Validating state before play mode (similar to OnValidate)
 ```csharp
 [RequireComponent(typeof(Rigidbody))]
-public class Player : CustomMonoBehaviour, IListener<ValidationEvent>
+public class Player : MonoBehaviour, IListener<ValidationEvent>
 {
     public Rigidbody? rb;
 
@@ -76,7 +78,7 @@ public class Player : CustomMonoBehaviour, IListener<ValidationEvent>
 ```
 ### Fetching instances using an identifier
 ```csharp
-public class Item : CustomMonoBehaviour, IIdentifier 
+public class Item : MonoBehaviour, IIdentifier 
 {
     [SerializeField]
     private string id;
@@ -91,7 +93,7 @@ if (Everything.TryGetWithID("item1", out object? item))
 ```
 ### Fetching instances using a path
 ```csharp
-public class Inventory : CustomMonoBehaviour, IIdentifier, IBranch
+public class Inventory : MonoBehaviour, IIdentifier, IBranch
 {
     [SerializeField]
     private List<Item> items = new();
@@ -136,12 +138,11 @@ Contains maps that convert the type from user input, to a collection of all of t
 Instances must be added and remove to the `Everything` class manually, unless you inherit from a "base" type that already ensures this for you.
 
 ### The `CustomMonoBehaviour` type and its pattern
-Their only purpose is to automatically do what `Everything` expects from you. This behaviour is also guarded, so that a sub type doesn't accidentally hide it, there are sealable types first, and then the custom types under the sealable type so that it seal the virtual methods for the callbacks.
+Their only purpose is to automatically do what `Everything` expects from you if you want to use its API with your types.
 
-This pattern is done for the `MonoBehaviour`, `ScriptableObject`, `Editor` and `EditorWindow` Unity base types. 
-If you see a set of different methods and functionalities to have that the custom ones that I wrote don't do then feel free to make your own. I'm not a fan of "base" types but working within Unity's implementation of their design there will always be "base" classes.
+This pattern is done for the `MonoBehaviour`, `ScriptableObject`, `Editor` and `EditorWindow` Unity base types so that it can be maximized.
 
-The custom types will also dispatch a `ValidateEvent` to themselves when `OnValidate()` is meant to happen.
+The custom types will also dispatch a `ValidateEvent` to themselves when `OnValidate()` is meant to happen on the instance.
 
 ### Iterating using generics
 The `Everything.GetAllThatAre<T>()` generic method currently has a good decent bandaid over its design but a bandaid nonetheless. The internal collections stores a list of `object` instances but the user is expecting a `IReadOnlyCollection<T>` the collection must mean that code should somehow transform from `object[]` to `T[]`. Basically this method will cost an allocation in the same way `ArrayPool<T>.Shared` invokes allocations.

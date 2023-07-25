@@ -1,7 +1,7 @@
 {
   "name": "com.popcron-games.lib",
   "displayName": "Popcron Lib",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "dependencies": {
     "com.unity.mathematics": "1.2.6"
   },
@@ -14,6 +14,11 @@
       "displayName": "Required Libraries",
       "description": "Contains .dll's of required libraries. System.Buffers, System.Memory, System.Runtime.CompilerServices.Unsafe",
       "path": "Samples~/Plugins"
+    },
+    {
+      "displayName": "Base Types",
+      "description": "Contains base types for the common types that Unity provides, MonoBehaviour, ScriptableObject, and editor types. Requiring you to override the methods you want to use while respecting base type's functionality.",
+      "path": "Samples~/Base Types"
     }
   ]
 }

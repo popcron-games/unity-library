@@ -1,9 +1,9 @@
 ﻿#nullable enable
 using UnityEditor;
 
-namespace Popcron
+namespace Popcron.Incomplete
 {
-    public class SealableEditorWindow : EditorWindow
+    public abstract class SealableEditorWindow : EditorWindow
     {
         protected virtual void OnEnable() { }
         protected virtual void OnDisable() { }

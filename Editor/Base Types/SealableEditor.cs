@@ -1,5 +1,5 @@
 ﻿#nullable enable
-namespace Popcron
+namespace Popcron.Incomplete
 {
     public class SealableEditor : UnityEditor.Editor
     {
