@@ -1,10 +1,10 @@
 ﻿#nullable enable
 using System;
 
-namespace Popcron
+namespace Popcron.Lib
 {
     /// <summary>
-    /// Allows for branching out when using <see cref="Everything.TryGetAtPath(ReadOnlySpan{char})"/>.
+    /// Allows for branching out when using <see cref="Everything.TryGetAtPath(ReadOnlySpan{char}, out object?)"/>.
     /// </summary>
     public interface IBranch
     {

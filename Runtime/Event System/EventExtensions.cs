@@ -1,5 +1,6 @@
 ﻿#nullable enable
 using Popcron;
+using Popcron.Events;
 using System;
 
 public static class EventExtensions
@@ -8,7 +9,6 @@ public static class EventExtensions
     /// Dispatches this event to all <see cref="IListener{T}"/> instances in <see cref="Everything"/>
     /// to any <see cref="Action{T}"/> instances in <see cref="EventListeners{T}"/>,
     /// to all <see cref="IEventHandler"/> instances in <see cref="EventHandlers"/> (entire events, not filtered)
-    /// <para></para> Will also execute any <see cref="IExecuteOnEvent{T}"/> instances in the codebase.
     /// </summary>
     public static T Dispatch<T>(this T e) where T : IEvent
     {

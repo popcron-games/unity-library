@@ -1,4 +1,9 @@
-﻿namespace Popcron
+﻿using Popcron;
+
+namespace UnityEngine
 {
-    public readonly struct ApplicationQuitting : IEvent { }
+    public readonly struct ApplicationQuitting : IEvent
+    {
+
+    }
 }

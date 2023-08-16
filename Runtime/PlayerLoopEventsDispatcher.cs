@@ -1,12 +1,14 @@
 ﻿#nullable enable
-using Popcron.Incomplete;
+using Popcron;
+using Popcron.Events;
+using Popcron.Sealable;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.LowLevel;
 using UnityEngine.PlayerLoop;
 
-namespace Popcron
+namespace Popcron.Lib
 {
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoad]

@@ -1,8 +1,7 @@
 #nullable enable
+using Popcron;
 
-using UnityEngine;
-
-namespace Popcron
+namespace UnityEngine
 {
     public readonly struct GUIEvent : IEvent
     {

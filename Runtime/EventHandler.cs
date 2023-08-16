@@ -1,29 +1,32 @@
 ﻿#nullable enable
-using System;
 using Popcron;
+using System;
 
-public readonly struct EventHandler<T> where T : IEvent
+namespace Popcron
 {
-    private readonly Action<T>? action;
-
-    public EventHandler(Action<T> action)
+    public readonly struct EventHandler<T> where T : IEvent
     {
-        this.action = action;
-    }
+        private readonly Action<T>? action;
 
-    public void Enable()
-    {
-        if (action != null)
+        public EventHandler(Action<T> action)
         {
-            EventListeners<T>.Add(action);
+            this.action = action;
         }
-    }
 
-    public void Disable()
-    {
-        if (action != null)
+        public void Enable()
         {
-            EventListeners<T>.Remove(action);
+            if (action != null)
+            {
+                EventListeners<T>.Add(action);
+            }
+        }
+
+        public void Disable()
+        {
+            if (action != null)
+            {
+                EventListeners<T>.Remove(action);
+            }
         }
     }
 }

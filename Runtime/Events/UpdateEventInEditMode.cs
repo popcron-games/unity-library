@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-namespace Popcron
+﻿namespace Popcron
 {
     /// <summary>
     /// Gets called only when the update event happens in editor and when not playing.

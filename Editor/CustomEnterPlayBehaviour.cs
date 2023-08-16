@@ -1,11 +1,13 @@
 ﻿#nullable enable
-using Popcron.Editor;
+using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Object = UnityEngine.Object;
 
-namespace Popcron
+namespace Popcron.Lib
 {
     [InitializeOnLoad]
     public static class CustomEnterPlayBehaviour
@@ -16,7 +18,13 @@ namespace Popcron
         static CustomEnterPlayBehaviour()
         {
             EditorApplication.playModeStateChanged += OnPlayModeStateChanging;
+            EditorApplication.delayCall += Initialize;
             EditorApplication.update += OnUpdate;
+        }
+
+        private static void Initialize()
+        {
+            new EditorApplicationDelayCall().Dispatch();
         }
 
         private static void OnUpdate()
@@ -39,11 +47,7 @@ namespace Popcron
                             {
                                 if (component != null)
                                 {
-                                    if (component is IListener<ValidationEvent> validationListener)
-                                    {
-                                        validationListener.OnEvent(new ValidationEvent(MonoBehaviourFlags.None));
-                                    }
-
+                                    component.SendMessage("OnValidate", null, SendMessageOptions.DontRequireReceiver);
                                     if (component is IListener<PlayabilityCheck> checkListener)
                                     {
                                         checkListener.OnEvent(beforePlayingCheck);
@@ -52,7 +56,6 @@ namespace Popcron
                             }
                         });
 
-                        new ValidationEvent().Dispatch();
                         PlayabilityCheck globalCheck = new PlayabilityCheck().Dispatch();
                         foreach (PlayabilityCheck.Issue issue in PlayabilityCheck.GetIssues(globalCheck, beforePlayingCheck))
                         {
@@ -82,13 +85,28 @@ namespace Popcron
                 else
                 {
                     playStateProcess = PlayStateProcess.Editing;
+                    ReadOnlySpan<object> all = Everything.All;
+                    HashSet<Object> toRemove = new HashSet<Object>();
+                    for (int i = 0; i < all.Length; i++)
+                    {
+                        if (all[i] is Object unityObject && unityObject == null)
+                        {
+                            toRemove.Add(unityObject);
+                        }
+                    }
+
+                    foreach (var item in toRemove)
+                    {
+                        Everything.Remove(item);
+                    }
                 }
             }
         }
 
-        private static void OnPlayModeStateChanging(PlayModeStateChange playModeStateChange)
+        private static void OnPlayModeStateChanging(PlayModeStateChange value)
         {
-            if (playModeStateChange == PlayModeStateChange.ExitingEditMode)
+            new PlayModeStateChanged((int)value).Dispatch();
+            if (value == PlayModeStateChange.ExitingEditMode)
             {
                 if (playStateProcess != PlayStateProcess.Ready)
                 {
@@ -101,7 +119,7 @@ namespace Popcron
                     EditorPrefs.SetFloat("startTime", (float)EditorApplication.timeSinceStartup + 0.15f);
                 }
             }
-            else if (playModeStateChange == PlayModeStateChange.EnteredEditMode)
+            else if (value == PlayModeStateChange.EnteredEditMode)
             {
                 if (playStateProcess == PlayStateProcess.Ready)
                 {

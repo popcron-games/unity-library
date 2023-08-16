@@ -1,6 +1,8 @@
 #nullable enable
 
-namespace Popcron
+using Popcron;
+
+namespace Popcron.Lib
 {
     public readonly struct TimeUpdateEvent : IEvent
     {

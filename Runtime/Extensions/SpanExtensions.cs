@@ -9,10 +9,10 @@ namespace Popcron
         {
             unchecked
             {
-                int hash = 23;
+                int hash = 0;
                 for (int i = 0; i < span.Length; i++)
                 {
-                    hash = hash * 31 + span[i];
+                    hash = hash * 2147483423 + span[i];
                 }
 
                 return hash;

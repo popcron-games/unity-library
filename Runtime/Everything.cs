@@ -1,9 +1,10 @@
 ﻿#nullable enable
+using Popcron;
+using Popcron.Lib;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace Popcron
@@ -236,6 +237,7 @@ namespace Popcron
         /// <summary>
         /// Returns the first instance of this type.
         /// </summary>
+        /// <exception cref="IndexOutOfRangeException"></exception>
         public static object GetFirst(Type type)
         {
             return assignableObjects[CalculateHash(type)].First();
@@ -244,6 +246,7 @@ namespace Popcron
         /// <summary>
         /// Returns the first instance of this type.
         /// </summary>
+        /// <exception cref="IndexOutOfRangeException"></exception>
         public static T GetFirst<T>()
         {
             return (T)assignableObjects[CalculateHash<T>()].First();
@@ -287,36 +290,53 @@ namespace Popcron
             return false;
         }
 
+        /// <summary>
+        /// Finds the first object with this ID through the <see cref="ICanBeIdentified"/> interface.
+        /// </summary>
         public static bool TryGetWithID(ReadOnlySpan<char> id, out object? value)
         {
-            int idSpan = id.GetSpanHashCode();
-            object? foundValue = null;
-            bool found = ForEachInAll((obj) =>
+            foreach (Object obj in unityObjects)
             {
-                if (obj is IIdentifiable identifiable)
+                if (obj is ICanBeIdentified identified && identified.Equals(id))
                 {
-                    if (identifiable.ID.GetSpanHashCode() == idSpan)
-                    {
-                        foundValue = obj;
-                        return false;
-                    }
+                    value = obj;
+                    return true;
                 }
+            }
 
-                return true;
-            });
-
-            if (found)
+            foreach (IUnityObject unityObj in objects)
             {
-                value = foundValue!;
-                return true;
+                if (unityObj is ICanBeIdentified identified && identified.Equals(id))
+                {
+                    value = unityObj;
+                    return true;
+                }
+            }
+
+            value = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Returns the first object with this ID using the <see cref="ICanBeIdentified"/> interface.
+        /// </summary>
+        /// <exception cref="NullReferenceException"></exception>
+        public static object GetWithID(ReadOnlySpan<char> id)
+        {
+            if (TryGetWithID(id, out object? value))
+            {
+                return value!;
             }
             else
             {
-                value = default;
-                return false;
+                throw new NullReferenceException($"Object with ID {id.ToString()} not found.");
             }
         }
 
+        /// <summary>
+        /// Finds the first value at this path.
+        /// </summary>
+        /// <exception cref="ArgumentException"></exception>
         public static bool TryGetAtPath(ReadOnlySpan<char> path, out object? value)
         {
             if (path.Length > 0)
@@ -324,19 +344,24 @@ namespace Popcron
                 value = null;
                 int position = 0;
                 int startIndex = 0;
+                bool reachedEnd = false;
                 while (position < path.Length)
                 {
                     char c = path[position];
-                    if (c == '/')
+                    reachedEnd |= position == path.Length - 1;
+                    if (c == '/' || reachedEnd)
                     {
                         ReadOnlySpan<char> id = path.Slice(startIndex, position);
                         startIndex = position + 1;
-
                         if (value is null)
                         {
                             if (!TryGetWithID(id, out value))
                             {
                                 return false;
+                            }
+                            else
+                            {
+                                //keep going
                             }
                         }
                         else
@@ -347,6 +372,10 @@ namespace Popcron
                                 {
                                     return false;
                                 }
+                                else
+                                {
+                                    //keep going
+                                }
                             }
                             else
                             {
@@ -354,17 +383,27 @@ namespace Popcron
                             }
                         }
                     }
-                    else
-                    {
-                        position++;
-                    }
+
+                    position++;
                 }
 
-                return value != null;
+                return reachedEnd;
             }
             else
             {
-                throw new Exception("Path is empty");
+                throw new ArgumentException("Path is empty");
+            }
+        }
+
+        public static object GetAtPath(ReadOnlySpan<char> path)
+        {
+            if (TryGetAtPath(path, out object? value))
+            {
+                return value!;
+            }
+            else
+            {
+                throw new NullReferenceException($"Object at path {path.ToString()} not found.");
             }
         }
     }

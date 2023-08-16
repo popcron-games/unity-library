@@ -1,7 +1,8 @@
 ﻿#nullable enable
+using Popcron.Lib;
 using System;
 using UnityEngine;
-using static Popcron.PlayerLoopEventDispatcher;
+using static Popcron.Lib.PlayerLoopEventDispatcher;
 
 namespace Popcron
 {

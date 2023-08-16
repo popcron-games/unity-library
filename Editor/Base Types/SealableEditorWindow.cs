@@ -1,7 +1,7 @@
 ﻿#nullable enable
 using UnityEditor;
 
-namespace Popcron.Incomplete
+namespace Popcron.Sealable
 {
     public abstract class SealableEditorWindow : EditorWindow
     {

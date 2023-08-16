@@ -1,7 +1,6 @@
-﻿#nullable enable
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace Popcron.Incomplete
+namespace Popcron.Sealable
 {
     public abstract class SealableMonoBehaviour : MonoBehaviour
     {

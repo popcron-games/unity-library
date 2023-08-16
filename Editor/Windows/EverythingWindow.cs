@@ -1,10 +1,11 @@
 ﻿#nullable enable
-using Popcron.Incomplete;
+using Popcron;
+using Popcron.Sealable;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace Popcron
+namespace Popcron.Lib.Editor
 {
     public class EverythingWindow : SealableEditorWindow
     {

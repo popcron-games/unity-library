@@ -1,6 +1,7 @@
-﻿#nullable enable
-
-namespace Popcron
+﻿namespace Popcron.Lib
 {
-    public readonly struct PreLateUpdateEvent : IEvent { }
+    public readonly struct PreLateUpdateEvent : IEvent
+    {
+
+    }
 }

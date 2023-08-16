@@ -1,6 +1,6 @@
-﻿using UnityEngine;
+﻿using Popcron;
 
-namespace Popcron
+namespace UnityEngine
 {
     public readonly struct RuntimeInitializeOnLoad : IEvent
     {

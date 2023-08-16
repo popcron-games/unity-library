@@ -1,4 +1,6 @@
-﻿namespace Popcron
+﻿using Popcron.Events;
+
+namespace Popcron
 {
     /// <summary>
     /// Marks implementors in <see cref="Everything"/> and <see cref="EventHandlers"> as receivers of any event.

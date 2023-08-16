@@ -1,4 +1,5 @@
 ﻿#nullable enable
+using Popcron;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -124,10 +125,10 @@ namespace Popcron
                 unchecked
                 {
                     int hash = 0;
-                    hash = (hash * 397) ^ EqualityComparer<Object?>.Default.GetHashCode(context);
-                    hash = (hash * 397) ^ message.GetHashCode();
-                    hash = (hash * 397) ^ contextGiven.GetHashCode();
-                    hash = (hash * 397) ^ EqualityComparer<StackTrace>.Default.GetHashCode(stackTrace);
+                    hash = hash * 397 ^ EqualityComparer<Object?>.Default.GetHashCode(context);
+                    hash = hash * 397 ^ message.GetHashCode();
+                    hash = hash * 397 ^ contextGiven.GetHashCode();
+                    hash = hash * 397 ^ EqualityComparer<StackTrace>.Default.GetHashCode(stackTrace);
                     return hash;
                 }
             }

@@ -1,6 +1,7 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -52,6 +53,36 @@ namespace Popcron
                     stack.Push(child.gameObject);
                 }
             }
+        }
+
+        public static ReadOnlySpan<char> GetPathInScene(this Transform transform)
+        {
+            StringBuilder builder = new StringBuilder();
+            do
+            {
+                builder.Append('/');
+                builder.Append(transform.name);
+                transform = transform.parent;
+            }
+            while (transform != null);
+            return builder.ToString().AsSpan();
+        }
+
+        public static int GetPositionalHash(this Transform transform)
+        {
+            int hash = 0;
+            unchecked
+            {
+                do
+                {
+                    int childIndex = transform.GetSiblingIndex();
+                    hash += (childIndex + 1) * 2147483563;
+                    transform = transform.parent;
+                }
+                while (transform != null);
+            }
+
+            return hash;
         }
     }
 }

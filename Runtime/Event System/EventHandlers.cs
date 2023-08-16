@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Popcron
+namespace Popcron.Events
 {
     public static class EventHandlers
     {
