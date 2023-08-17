@@ -51,14 +51,17 @@ namespace Popcron.Lib
 
         private static void TryToCreate()
         {
-            StaticData staticData = Resources.Load<StaticData>("Static Data");
-            foreach (var fullTypeName in staticData.staticObjectTypes)
+            StaticData? staticData = Resources.Load<StaticData>("Static Data");
+            if (staticData != null)
             {
-                Type? type = Type.GetType(fullTypeName);
-                if (type != null && types.Add(type))
+                foreach (var fullTypeName in staticData.staticObjectTypes)
                 {
-                    StaticObject instance = (StaticObject)Activator.CreateInstance(type);
-                    Everything.Add(instance);
+                    Type? type = Type.GetType(fullTypeName);
+                    if (type != null && types.Add(type))
+                    {
+                        StaticObject instance = (StaticObject)Activator.CreateInstance(type);
+                        Everything.Add(instance);
+                    }
                 }
             }
         }
