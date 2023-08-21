@@ -59,8 +59,18 @@ namespace Popcron.Lib
                     Type? type = Type.GetType(fullTypeName);
                     if (type != null && types.Add(type))
                     {
-                        StaticObject instance = (StaticObject)Activator.CreateInstance(type);
-                        Everything.Add(instance);
+                        if (!type.IsAbstract) 
+                        {
+                            try
+                            {
+                                StaticObject instance = (StaticObject)Activator.CreateInstance(type);
+                                Everything.Add(instance);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogErrorFormat("Exception occured when creating static object of type {0}\n{1}", type, ex);
+                            }
+                        }
                     }
                 }
             }

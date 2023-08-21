@@ -7,14 +7,15 @@ namespace Popcron
     public static class EventListeners<T> where T : IEvent
     {
         public static readonly Queue<Action<T>> oneShotListeners = new Queue<Action<T>>();
-        private static readonly HashSet<Action<T>> listeners = new HashSet<Action<T>>();
+        private static readonly List<Action<T>> listeners = new List<Action<T>>();
 
-        public static IReadOnlyCollection<Action<T>> Listeners => listeners;
+        public static IReadOnlyList<Action<T>> Listeners => listeners;
 
         public static bool Add<L>(L listener, Action<T> handler)
         {
-            if (listeners.Add(handler))
+            if (!listeners.Contains(handler))
             {
+                listeners.Add(handler);
                 StaticListeners<L>.handlersPerListeners[listener] = handler;
                 StaticListeners<L>.listenerPerHandlers[handler] = listener;
                 return true;

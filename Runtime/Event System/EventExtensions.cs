@@ -22,9 +22,10 @@ public static class EventExtensions
             handler.Dispatch(e);
         }
 
-        foreach (Action<T> listener in EventListeners<T>.Listeners)
+        int count = EventListeners<T>.Listeners.Count;
+        for (int i = count - 1; i >= 0; i--)
         {
-            listener.Invoke(e);
+            EventListeners<T>.Listeners[i].Invoke(e);
         }
 
         while (EventListeners<T>.oneShotListeners.Count > 0)
