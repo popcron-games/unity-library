@@ -33,8 +33,10 @@ public static class EventExtensions
             EventListeners<T>.oneShotListeners.Dequeue().Invoke(e);
         }
 
-        foreach (IEventHandler handler in EventHandlers.Handlers)
+        count = EventHandlers.Handlers.Count;
+        for (int i = count - 1; i >= 0; i--)
         {
+            IEventHandler handler = EventHandlers.Handlers[i];
             handler.Dispatch(e);
         }
 

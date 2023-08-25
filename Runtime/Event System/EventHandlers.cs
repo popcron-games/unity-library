@@ -4,9 +4,9 @@ namespace Popcron.Events
 {
     public static class EventHandlers
     {
-        private static readonly HashSet<IEventHandler> handlers = new HashSet<IEventHandler>();
+        private static readonly List<IEventHandler> handlers = new List<IEventHandler>();
 
-        public static ICollection<IEventHandler> Handlers => handlers;
+        public static IReadOnlyList<IEventHandler> Handlers => handlers;
 
         public static void Add<T>(T handler) where T : IEventHandler
         {

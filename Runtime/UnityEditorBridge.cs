@@ -70,12 +70,12 @@ public static class UnityEditorBridge
 #endif
     }
 
-    public static string? GetAssetPath<T>(T asset) where T : Object
+    public static string GetAssetPath<T>(T asset) where T : Object
     {
 #if UNITY_EDITOR
         return AssetDatabase.GetAssetPath(asset);
 #else
-        return null;
+        return "";
 #endif
     }
 
@@ -251,11 +251,11 @@ public static class UnityEditorBridge
         return false;
     }
 
-    public static List<T> FindAssets<T>() where T : Object
+    public static List<T> FindAssets<T>(bool useFullName = false) where T : Object
     {
         builder.Clear();
         builder.Append("t:");
-        builder.Append(typeof(T).FullName);
+        builder.Append(useFullName ? typeof(T).FullName : typeof(T).Name);
         string[] guids = FindAssets(builder.ToString());
         List<T> list = new List<T>(guids.Length);
         foreach (var guid in guids)

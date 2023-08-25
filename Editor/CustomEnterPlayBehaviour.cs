@@ -1,6 +1,7 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -12,6 +13,7 @@ namespace Popcron.Lib
     [InitializeOnLoad]
     public static class CustomEnterPlayBehaviour
     {
+        private static readonly Dictionary<Type, MethodInfo?> componentTypesWithValidate = new Dictionary<Type, MethodInfo?>();
         private static readonly StringBuilder builder = new StringBuilder();
         private static PlayStateProcess playStateProcess;
 
@@ -47,7 +49,18 @@ namespace Popcron.Lib
                             {
                                 if (component != null)
                                 {
-                                    component.SendMessage("OnValidate", null, SendMessageOptions.DontRequireReceiver);
+                                    Type componentType = component.GetType();
+                                    if (!componentTypesWithValidate.TryGetValue(componentType, out MethodInfo? validateMethod))
+                                    {
+                                        validateMethod = componentType.GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                                        componentTypesWithValidate.Add(componentType, validateMethod);
+                                    }
+
+                                    if (validateMethod != null)
+                                    {
+                                        validateMethod.Invoke(component, null);
+                                    }
+
                                     if (component is IListener<PlayabilityCheck> checkListener)
                                     {
                                         checkListener.OnEvent(beforePlayingCheck);
