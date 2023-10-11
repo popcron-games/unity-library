@@ -25,9 +25,19 @@ namespace Popcron
             issues.Add(new Issue(null, message.ToString(), false, new StackTrace(skipFrames, needFileInfo)));
         }
 
+        public void CantBecause(string message)
+        {
+            issues.Add(new Issue(null, message, false, new StackTrace(skipFrames, needFileInfo)));
+        }
+
         public void CantBecause(ReadOnlySpan<char> message, Object context)
         {
             issues.Add(new Issue(context, message.ToString(), true, new StackTrace(skipFrames, needFileInfo)));
+        }
+
+        public void CantBecause(string message, Object context)
+        {
+            issues.Add(new Issue(context, message, true, new StackTrace(skipFrames, needFileInfo)));
         }
 
         public void CantIfNull<T>(T value, string message)
@@ -72,6 +82,14 @@ namespace Popcron
             }
         }
 
+        public void CantIfFalse(bool value, string message)
+        {
+            if (!value)
+            {
+                issues.Add(new Issue(null, message, false, new StackTrace(skipFrames, needFileInfo)));
+            }
+        }
+
         public void CantIfFalse(bool value, ReadOnlySpan<char> message, Object context)
         {
             if (!value)
@@ -80,18 +98,12 @@ namespace Popcron
             }
         }
 
-        public static IEnumerable<Issue> GetIssues(params PlayabilityCheck[] checks)
+        public void CantIfFalse(bool value, string message, Object context)
         {
-            HashSet<Issue> uniqueIssues = new HashSet<Issue>();
-            foreach (PlayabilityCheck check in checks)
+            if (!value)
             {
-                foreach (Issue issue in check.Issues)
-                {
-                    uniqueIssues.Add(issue);
-                }
+                issues.Add(new Issue(context, message, true, new StackTrace(skipFrames, needFileInfo)));
             }
-
-            return uniqueIssues;
         }
 
         public readonly struct Issue : IEquatable<Issue>

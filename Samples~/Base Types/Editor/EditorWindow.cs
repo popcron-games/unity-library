@@ -1,16 +1,18 @@
 ﻿#nullable enable
 using Popcron;
-using Popcron.Incomplete;
+using Popcron.Sealable;
 
 public abstract class EditorWindow : SealableEditorWindow
 {
     protected override void OnEnable()
     {
+        base.OnEnable();
         Everything.Add(this);
     }
 
     protected override void OnDisable()
     {
         Everything.Remove(this);
+        base.OnDisable();
     }
 }

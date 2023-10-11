@@ -41,10 +41,9 @@ namespace Popcron.Lib
                         playStateProcess = PlayStateProcess.Starting;
 
                         bool ableToPlay = true;
-                        PlayabilityCheck beforePlayingCheck = new PlayabilityCheck();
+                        PlayabilityCheck activeSceneCheck = new PlayabilityCheck();
                         SceneManager.GetActiveScene().ForEachGameObject((go) =>
                         {
-                            //report issues with fields that dont have a ? and are missing
                             foreach (Component? component in go.GetComponentsInChildren<Component>())
                             {
                                 if (component != null)
@@ -56,21 +55,24 @@ namespace Popcron.Lib
                                         componentTypesWithValidate.Add(componentType, validateMethod);
                                     }
 
-                                    if (validateMethod != null)
-                                    {
-                                        validateMethod.Invoke(component, null);
-                                    }
-
                                     if (component is IListener<PlayabilityCheck> checkListener)
                                     {
-                                        checkListener.OnEvent(beforePlayingCheck);
+                                        checkListener.OnEvent(activeSceneCheck);
+                                    }
+
+                                    if (validateMethod != null)
+                                    {
+                                        //manually trigger OnValidate
+                                        validateMethod.Invoke(component, null);
                                     }
                                 }
                             }
                         });
 
                         PlayabilityCheck globalCheck = new PlayabilityCheck().Dispatch();
-                        foreach (PlayabilityCheck.Issue issue in PlayabilityCheck.GetIssues(globalCheck, beforePlayingCheck))
+                        HashSet<PlayabilityCheck.Issue> issues = new HashSet<PlayabilityCheck.Issue>(globalCheck.Issues);
+                        issues.UnionWith(activeSceneCheck.Issues);
+                        foreach (PlayabilityCheck.Issue issue in issues)
                         {
                             builder.Clear();
                             builder.AppendLine(issue.message);

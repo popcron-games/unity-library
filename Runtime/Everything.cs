@@ -11,7 +11,7 @@ namespace Popcron
     public static class Everything
     {
         private static readonly HashSet<Object> unityObjects = new HashSet<Object>();
-        private static readonly HashSet<IUnityObject> objects = new HashSet<IUnityObject>();
+        private static readonly HashSet<ITracked> objects = new HashSet<ITracked>();
         private static readonly Dictionary<int, HashSet<object>> assignableObjects = new Dictionary<int, HashSet<object>>();
         private static readonly Dictionary<int, HashSet<int>> typeToAssignableTypes = new Dictionary<int, HashSet<int>>();
 
@@ -30,7 +30,7 @@ namespace Popcron
                     length++;
                 }
 
-                foreach (IUnityObject unityObj in objects)
+                foreach (ITracked unityObj in objects)
                 {
                     buffer[length] = unityObj;
                     length++;
@@ -92,7 +92,7 @@ namespace Popcron
             }
         }
 
-        public static void Add(IUnityObject obj)
+        public static void Add(ITracked obj)
         {
             if (objects.Add(obj))
             {
@@ -101,7 +101,7 @@ namespace Popcron
             }
         }
 
-        public static void Remove(IUnityObject obj)
+        public static void Remove(ITracked obj)
         {
             if (objects.Remove(obj))
             {
@@ -265,7 +265,7 @@ namespace Popcron
                 }
             }
 
-            foreach (IUnityObject unityObj in objects)
+            foreach (ITracked unityObj in objects)
             {
                 if (!callback(unityObj))
                 {
@@ -303,7 +303,7 @@ namespace Popcron
                 }
             }
 
-            foreach (IUnityObject unityObj in objects)
+            foreach (ITracked unityObj in objects)
             {
                 if (unityObj is IIdentifiable identified && identified.ID.SequenceEqual(id))
                 {
@@ -404,6 +404,14 @@ namespace Popcron
             {
                 throw new NullReferenceException($"Object at path {path.ToString()} not found.");
             }
+        }
+
+        /// <summary>
+        /// Enables this object to be part of <see cref="Everything"/>.
+        /// </summary>
+        public interface ITracked
+        {
+
         }
     }
 }
