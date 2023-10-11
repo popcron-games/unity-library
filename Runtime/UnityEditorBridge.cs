@@ -216,7 +216,7 @@ public static class UnityEditorBridge
 #endif
     }
 
-    public static T? GetEditorPref<T>(string key)
+    public static T GetEditorPref<T>(string key)
     {
 #if UNITY_EDITOR
         if (EditorPrefs.HasKey(key))
@@ -229,7 +229,7 @@ public static class UnityEditorBridge
             catch { }
         }
 #endif
-        return default;
+        return default!;
     }
 
     public static bool TryGetEditorPref<T>(string key, out T value)
@@ -289,10 +289,15 @@ public static class UnityEditorBridge
         return list;
     }
 
+    public static Object? FindAssetWithNameOrID(string id)
+    {
+        return FindAssetWithNameOrID(id.AsSpan());
+    }
+
     public static Object? FindAssetWithNameOrID(ReadOnlySpan<char> id)
     {
         builder.Clear();
-        builder.Append(id);
+        builder.Append(id.ToString());
         string[] guids = FindAssets(builder.ToString());
         foreach (var guid in guids)
         {
@@ -314,7 +319,7 @@ public static class UnityEditorBridge
         return null;
     }
 
-    public static bool TryGetAssetWithIdentifier<T>(ReadOnlySpan<char> id, out T asset) where T : Object
+    public static bool TryGetAssetWithNameOrID<T>(ReadOnlySpan<char> id, out T asset) where T : Object
     {
         builder.Clear();
         builder.Append("t:");
@@ -343,9 +348,9 @@ public static class UnityEditorBridge
         return false;
     }
 
-    public static T? FindAssetWithIdentifier<T>(ReadOnlySpan<char> id) where T : Object
+    public static T? FindAssetWithNameOrID<T>(ReadOnlySpan<char> id) where T : Object
     {
-        if (TryGetAssetWithIdentifier(id, out T asset))
+        if (TryGetAssetWithNameOrID(id, out T asset))
         {
             return asset;
         }

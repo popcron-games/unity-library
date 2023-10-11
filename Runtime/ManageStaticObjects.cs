@@ -10,7 +10,7 @@ namespace Popcron.Lib
 #endif
     public static class ManageStaticObjects
     {
-        private readonly static HashSet<Type> types = new();
+        private readonly static HashSet<Type> types = new HashSet<Type>();
 
         static ManageStaticObjects()
         {
@@ -36,7 +36,7 @@ namespace Popcron.Lib
         {
 #if UNITY_EDITOR
             StaticData asset = ScriptableObject.CreateInstance<StaticData>();
-            List<string> fullTypeNames = new();
+            List<string> fullTypeNames = new List<string>();
             foreach (Type type in UnityEditor.TypeCache.GetTypesDerivedFrom<StaticObject>())
             {
                 fullTypeNames.Add(type.AssemblyQualifiedName);
