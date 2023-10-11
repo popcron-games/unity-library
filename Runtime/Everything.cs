@@ -1,5 +1,4 @@
 ﻿#nullable enable
-using Popcron;
 using Popcron.Lib;
 using System;
 using System.Buffers;
@@ -297,7 +296,7 @@ namespace Popcron
         {
             foreach (Object obj in unityObjects)
             {
-                if (obj is ICanBeIdentified identified && identified.Equals(id))
+                if (obj is IIdentifiable identified && identified.ID.SequenceEqual(id))
                 {
                     value = obj;
                     return true;
@@ -306,7 +305,7 @@ namespace Popcron
 
             foreach (IUnityObject unityObj in objects)
             {
-                if (unityObj is ICanBeIdentified identified && identified.Equals(id))
+                if (unityObj is IIdentifiable identified && identified.ID.SequenceEqual(id))
                 {
                     value = unityObj;
                     return true;

@@ -304,7 +304,7 @@ public static class UnityEditorBridge
             string path = GUIDToAssetPath(guid)!;
             if (LoadMainAssetAtPath(path) is Object asset)
             {
-                if (asset is ICanBeIdentified identifiable && identifiable.Equals(id))
+                if (asset is IIdentifiable identifiable && identifiable.ID.SequenceEqual(id))
                 {
                     return asset;
                 }
@@ -330,7 +330,7 @@ public static class UnityEditorBridge
             string path = GUIDToAssetPath(guid);
             if (LoadAssetAtPath<T>(path) is T potentialAsset)
             {
-                if (potentialAsset is ICanBeIdentified identifiable && identifiable.Equals(id))
+                if (potentialAsset is IIdentifiable identifiable && identifiable.ID.SequenceEqual(id))
                 {
                     asset = potentialAsset;
                     return true;

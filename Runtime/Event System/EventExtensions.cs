@@ -6,6 +6,17 @@ using System;
 public static class EventExtensions
 {
     /// <summary>
+    /// Dispatches this event only to this instance, which must implement <see cref="IListener{T}"/>
+    /// </summary>
+    public static void Tell<L, T>(this L potentialListener, T ev) where T : IEvent
+    {
+        if (potentialListener is IListener<T> listener)
+        {
+            listener.OnEvent(ev);
+        }
+    }
+
+    /// <summary>
     /// Dispatches this event to all <see cref="IListener{T}"/> instances in <see cref="Everything"/>
     /// to any <see cref="Action{T}"/> instances in <see cref="EventListeners{T}"/>,
     /// to all <see cref="IEventHandler"/> instances in <see cref="EventHandlers"/> (entire events, not filtered)

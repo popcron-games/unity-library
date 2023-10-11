@@ -1,6 +1,4 @@
 ﻿#nullable enable
-using Popcron;
-using Popcron.Events;
 using Popcron.Sealable;
 using System;
 using System.Collections.Generic;
@@ -15,52 +13,63 @@ namespace Popcron.Lib
 #endif
     public static class PlayerLoopEventDispatcher
     {
+        private static bool injected;
+
         static PlayerLoopEventDispatcher()
+        {
+            InjectCallbacks();
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void RuntimeInitialize()
         {
             InjectCallbacks();
         }
 
         private static void InjectCallbacks()
         {
+            if (injected) return;
+
+            injected = true;
             PlayerLoopSystem playerLoop = PlayerLoop.GetCurrentPlayerLoop();
             for (int i = 0; i < playerLoop.subSystemList.Length; i++)
             {
                 ref PlayerLoopSystem rootSystem = ref playerLoop.subSystemList[i];
                 Type systemType = rootSystem.type;
 
-                PlayerLoopSystem callbackSystem = new PlayerLoopSystem()
+                PlayerLoopSystem newCallbackSystem = new PlayerLoopSystem()
                 {
                     type = typeof(PlayerLoopEventDispatcher),
                 };
 
                 if (systemType == typeof(TimeUpdate))
                 {
-                    callbackSystem.updateDelegate = () => OnTimeUpdate();
+                    newCallbackSystem.updateDelegate = () => OnTimeUpdate();
                 }
                 else if (systemType == typeof(EarlyUpdate))
                 {
-                    callbackSystem.updateDelegate = () => OnEarlyUpdate();
+                    newCallbackSystem.updateDelegate = () => OnEarlyUpdate();
                 }
                 else if (systemType == typeof(FixedUpdate))
                 {
-                    callbackSystem.updateDelegate = () => OnFixedUpdate();
+                    newCallbackSystem.updateDelegate = () => OnFixedUpdate();
                 }
                 else if (systemType == typeof(Update))
                 {
-                    callbackSystem.updateDelegate = () => OnUpdate();
+                    newCallbackSystem.updateDelegate = () => OnUpdate();
                 }
                 else if (systemType == typeof(PreLateUpdate))
                 {
-                    callbackSystem.updateDelegate = () => OnPreLateUpdate();
+                    newCallbackSystem.updateDelegate = () => OnPreLateUpdate();
                 }
                 else if (systemType == typeof(PostLateUpdate))
                 {
-                    callbackSystem.updateDelegate = () => OnPostLateUpdate();
+                    newCallbackSystem.updateDelegate = () => OnPostLateUpdate();
                 }
 
                 List<PlayerLoopSystem> subSystemList = new List<PlayerLoopSystem>(rootSystem.subSystemList)
                 {
-                    callbackSystem
+                    newCallbackSystem
                 };
 
                 rootSystem.subSystemList = subSystemList.ToArray();

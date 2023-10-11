@@ -3,10 +3,10 @@
 namespace Popcron
 {
     /// <summary>
-    /// Makes this object testable against a <see cref="ReadOnlySpan{char}"/>
+    /// Makes this object testable against another <see cref="ReadOnlySpan{char}"/>
     /// </summary>
-    public interface ICanBeIdentified
+    public interface IIdentifiable
     {
-        bool Equals(ReadOnlySpan<char> value);
+        ReadOnlySpan<char> ID { get; }
     }
 }
