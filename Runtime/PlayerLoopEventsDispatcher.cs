@@ -166,7 +166,7 @@ namespace Popcron.Lib
                 }
             }
 
-            void IListener<UpdateEvent>.OnEvent(UpdateEvent e)
+            void IListener<UpdateEvent>.OnReceive(UpdateEvent e)
             {
                 if (this != instance)
                 {

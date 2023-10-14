@@ -12,7 +12,7 @@ public static class EventExtensions
     {
         if (potentialListener is IListener<T> listener)
         {
-            listener.OnEvent(ev);
+            listener.OnReceive(ev);
         }
     }
 
@@ -25,7 +25,7 @@ public static class EventExtensions
     {
         foreach (IListener<T> listener in Everything.GetAllThatAre<IListener<T>>())
         {
-            listener.OnEvent(e);
+            listener.OnReceive(e);
         }
 
         foreach (IEventHandler handler in Everything.GetAllThatAre<IEventHandler>())

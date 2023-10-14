@@ -57,7 +57,7 @@ namespace Popcron.Lib
 
                                     if (component is IListener<PlayabilityCheck> checkListener)
                                     {
-                                        checkListener.OnEvent(activeSceneCheck);
+                                        checkListener.OnReceive(activeSceneCheck);
                                     }
 
                                     if (validateMethod != null)
