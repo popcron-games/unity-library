@@ -1,0 +1,18 @@
+{
+  "name": "com.popcron-games.lib",
+  "version": "1.0.0",
+  "description": "Tools to facilitate making games and programs in Unity in a functional way.",
+  "author": {
+    "name": "Popcron Games",
+    "url": "http://github.com/popcron-games/com.popcron-games.lib"
+  },
+  "displayName": "Library",
+  "type": "library",
+  "samples": [
+    {
+      "displayName": "Required Plugins",
+      "description": "Contains System.Runtime.CompilerServices.Unsafe.dll required for the library to work.",
+      "path": "~Samples/Required Plugins"
+    }
+  ]
+}
