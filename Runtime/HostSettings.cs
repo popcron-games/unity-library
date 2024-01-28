@@ -179,6 +179,7 @@ namespace Library.Unity
             if (found == null)
             {
                 found = CreateInstance<HostSettings>();
+                found.stateTypeName = "Library.Unity.Host+DefaultState, Library.Runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null";
                 UnityEditor.AssetDatabase.CreateAsset(found, "Assets/" + nameof(HostSettings) + ".asset");
                 UnityEditor.AssetDatabase.SaveAssets();
                 Debug.Log("Created HostSettings asset at Assets/" + nameof(HostSettings) + ".asset");
