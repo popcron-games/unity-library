@@ -208,6 +208,7 @@ namespace Library.Systems
         public bool TestStarting(VirtualMachine vm)
         {
             List<IListener<PlayValidationEvent>> listeners = new();
+            listeners.Add(HostSettings.Singleton);
             CollectValidators(vm, listeners);
             return Test(vm, listeners);
         }

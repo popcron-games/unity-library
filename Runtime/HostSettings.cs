@@ -13,8 +13,8 @@ namespace Library.Unity
     /// <summary>
     /// Singleton asset accessible from anywhere, containing user assets.
     /// </summary>
-    [DefaultExecutionOrder(int.MaxValue - 100)]
-    public sealed class HostSettings : CustomScriptableObject, IListener<PlayValidationEvent>
+    [DefaultExecutionOrder(int.MinValue - 20)]
+    public sealed class HostSettings : ScriptableObject, IListener<PlayValidationEvent>
     {
         private static HostSettings? singleton;
 
