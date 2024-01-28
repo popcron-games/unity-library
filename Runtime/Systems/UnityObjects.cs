@@ -1,10 +1,9 @@
 ﻿#nullable enable
 using System;
-using System.Buffers;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace Library.Unity
+namespace Library.Systems
 {
     /// <summary>
     /// Contains access to all components that inherit from <see cref="CustomMonoBehaviour"/>,
@@ -14,7 +13,7 @@ namespace Library.Unity
     {
         void IBroadcastListener.Receive<T>(VirtualMachine vm, T e)
         {
-            Object[] buffer = ArrayPool<Object>.Shared.Rent(Count);
+            using RentedArray<Object> buffer = new(Count);
             int count = FillAllThatAre<IListener<T>>(buffer);
             for (int i = 0; i < count; i++)
             {
@@ -29,8 +28,6 @@ namespace Library.Unity
                     Debug.LogException(ex, asset);
                 }
             }
-
-            ArrayPool<Object>.Shared.Return(buffer);
         }
     }
 }

@@ -15,7 +15,7 @@ using Object = UnityEngine.Object;
 using UnityEditor;
 #endif
 
-namespace Library.Unity
+namespace Library.Systems
 {
     public class PlayValidationTester
     {
@@ -82,8 +82,8 @@ namespace Library.Unity
             //types
             else if (value is Object unityObject)
             {
-                //iterate through all referenced fields
 #if UNITY_EDITOR
+                //iterate through all referenced fields
                 Type type = unityObject.GetType();
                 if (!typesWithAssetReferences.TryGetValue(type, out bool has))
                 {

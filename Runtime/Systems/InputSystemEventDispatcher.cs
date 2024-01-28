@@ -1,5 +1,4 @@
 ﻿#nullable enable
-using System;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
@@ -29,7 +28,7 @@ namespace Library.Unity
             }
             else if (change == InputDeviceChange.Removed)
             {
-                vm.Broadcast(new InputDeviceRemove(device));
+                vm.Broadcast(new InputDeviceRemoved(device));
             }
         }
 
@@ -58,71 +57,6 @@ namespace Library.Unity
                     vm.Broadcast(new InputControlChanged(control));
                 }
             }
-        }
-    }
-
-    public readonly struct InputDeviceAdded
-    {
-        public readonly InputDevice device;
-
-        public InputDeviceAdded(InputDevice device)
-        {
-            this.device = device;
-        }
-    }
-
-    public readonly struct InputDeviceRemove
-    {
-        public readonly InputDevice device;
-
-        public InputDeviceRemove(InputDevice device)
-        {
-            this.device = device;
-        }
-    }
-
-    public readonly struct InputControlPressed
-    {
-        public readonly InputControl control;
-
-        public InputControlPressed(InputControl control)
-        {
-            this.control = control;
-        }
-
-        public readonly bool IsPath(ReadOnlySpan<char> controlPath)
-        {
-            return controlPath.Equals(control.path.AsSpan(), StringComparison.OrdinalIgnoreCase);
-        }
-    }
-
-    public readonly struct InputControlReleased
-    {
-        public readonly InputControl control;
-
-        public InputControlReleased(InputControl control)
-        {
-            this.control = control;
-        }
-
-        public readonly bool IsPath(ReadOnlySpan<char> controlPath)
-        {
-            return controlPath.Equals(control.path.AsSpan(), StringComparison.OrdinalIgnoreCase);
-        }
-    }
-
-    public readonly struct InputControlChanged
-    {
-        public readonly InputControl control;
-
-        public InputControlChanged(InputControl control)
-        {
-            this.control = control;
-        }
-
-        public readonly bool IsPath(ReadOnlySpan<char> controlPath)
-        {
-            return controlPath.Equals(control.path.AsSpan(), StringComparison.OrdinalIgnoreCase);
         }
     }
 }

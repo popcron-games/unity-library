@@ -1,6 +1,6 @@
 {
-    "name": "Popcron.Library",
-    "rootNamespace": "Popcron.Library",
+    "name": "Library",
+    "rootNamespace": "Library",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

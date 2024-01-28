@@ -1,10 +1,12 @@
 ﻿#nullable enable
+using Library.Systems;
+using Library.Unity;
 using System;
 
-namespace Library.Unity
+namespace Library
 {
     /// <summary>
-    /// Added by <see cref="Host"/> through reflection.
+    /// Added by <see cref="Host"/> before its virtual machine initializes.
     /// </summary>
     public class EditorSystems : IDisposable
     {
@@ -15,12 +17,12 @@ namespace Library.Unity
             this.vm = vm;
             vm.AddSystem(new PlayValidationTester());
             vm.AddSystem(new CustomPlayButton(vm));
-            vm.AddSystem(new EnterPlayValidationTester(vm));
+            vm.AddSystem(new TestBeforeEnteringPlay(vm));
         }
 
         public void Dispose()
         {
-            vm.RemoveSystem<EnterPlayValidationTester>().Dispose();
+            vm.RemoveSystem<TestBeforeEnteringPlay>().Dispose();
             vm.RemoveSystem<CustomPlayButton>().Dispose();
             vm.RemoveSystem<PlayValidationTester>();
         }

@@ -3,13 +3,13 @@ using System;
 using UnityEditor;
 using UnityEngine;
 
-namespace Library.Unity
+namespace Library.Systems
 {
-    public class EnterPlayValidationTester : IDisposable
+    public class TestBeforeEnteringPlay : IDisposable
     {
         private readonly VirtualMachine vm;
 
-        public EnterPlayValidationTester(VirtualMachine vm)
+        public TestBeforeEnteringPlay(VirtualMachine vm)
         {
             this.vm = vm;
             EditorApplication.playModeStateChanged += Changed;

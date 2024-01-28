@@ -9,7 +9,7 @@ using Random = UnityEngine.Random;
 using UnityEditor;
 #endif
 
-[assembly: InternalsVisibleTo("Popcron.Library.Editor")]
+[assembly: InternalsVisibleTo("Library.Editor")]
 namespace Library.Unity
 {
     /// <summary>
@@ -117,27 +117,30 @@ namespace Library.Unity
                 }
 
                 Debug.LogError(errorBuilder.ToString(), settings);
-                vm = new(id, new EmptyState());
+                vm = new(id, new DefaultState());
+                vm.Initialize();
                 return;
             }
 #endif
 
             starting = false;
-            IState state = (IState)Activator.CreateInstance(settings.StateType);
-            vm = new VirtualMachine(id, state);
 
 #if UNITY_EDITOR
-            Type editorSystemsType = Type.GetType("Library.Unity.EditorSystems, Popcron.Library.Editor");
-            if (editorSystemsType is not null)
+            Type? editorSystemsType = Type.GetType("Library.EditorSystems, Library.Editor");
+            if (editorSystemsType is null)
             {
-                vm.AddSystem(Activator.CreateInstance(editorSystemsType, vm));
-            }
-            else
-            {
-                Debug.LogError("Editor systems type not found in AppDomain.");
+                Debug.LogErrorFormat("Editor systems type not found in AppDomain.");
+                vm = new(id, new DefaultState());
+                vm.Initialize();
+                return;
             }
 #endif
-            
+
+            IState state = (IState)Activator.CreateInstance(settings.StateType);
+            vm = new VirtualMachine(id, state);
+#if UNITY_EDITOR
+            vm.AddSystem(Activator.CreateInstance(editorSystemsType, vm));
+#endif
             vm.Initialize();
         }
 
@@ -171,14 +174,16 @@ namespace Library.Unity
             return Random.Range(int.MinValue, int.MaxValue);
         }
 
-        public class EmptyState : IState
+        public class DefaultState : IState
         {
             void IState.Initialize(VirtualMachine vm)
             {
+                vm.AddSystem(new UnitySystems(vm));
             }
 
             void IState.Finalize(VirtualMachine vm)
             {
+                vm.RemoveSystem<UnitySystems>().Dispose();
             }
         }
     }

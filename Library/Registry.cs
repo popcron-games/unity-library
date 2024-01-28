@@ -5,9 +5,9 @@ using System.Collections.Generic;
 namespace Library
 {
     /// <summary>
-    /// Access to objects and allows for efficient retrieval of them by assignable types.
+    /// Allows for efficient retrieval of instances that are assignable to a type.
     /// </summary>
-    public class Registry<T>
+    public class Registry<T> where T : notnull
     {
         private static readonly Dictionary<Type, HashSet<Type>> typeToAssignableTypes = new();
 
@@ -107,17 +107,53 @@ namespace Library
             }
         }
 
+        /// <summary>
+        /// Copies all instances that are assignable to <typeparamref name="A"/>.
+        /// </summary>
         public int FillAllThatAre<A>(T[] buffer)
         {
             return FillAllThatAre(typeof(A), buffer);
         }
 
+        /// <summary>
+        /// Copies all instances that are assignable to <typeparamref name="A"/>.
+        /// </summary>
+        public int FillAllThatAre<A>(IList<T> buffer) 
+        {
+            return FillAllThatAre(typeof(A), buffer);
+        }
+
+        /// <summary>
+        /// Copies all instances that are assignable to <typeparamref name="A"/>.
+        /// </summary>
         public int FillAllThatAre(Type type, T[] buffer)
         {
             if (assignableTypeToObjects.TryGetValue(type, out List<T>? objects))
             {
-                objects.CopyTo(buffer);
-                return objects.Count;
+                int length = objects.Count > buffer.Length ? buffer.Length : objects.Count;
+                objects.CopyTo(0, buffer, 0, length);
+                return length;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Copies all instances that are assignable to <typeparamref name="A"/>.
+        /// </summary>
+        public int FillAllThatAre(Type type, IList<T> buffer)
+        {
+            if (assignableTypeToObjects.TryGetValue(type, out List<T>? objects))
+            {
+                int length = objects.Count > buffer.Count ? buffer.Count : objects.Count;
+                for (int i = 0; i < length; i++)
+                {
+                    buffer[i] = objects[i];
+                }
+
+                return length;
             }
             else
             {
