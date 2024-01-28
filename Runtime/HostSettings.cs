@@ -13,7 +13,7 @@ namespace Library.Unity
     /// <summary>
     /// Singleton asset accessible from anywhere, containing user assets.
     /// </summary>
-    [DefaultExecutionOrder(int.MinValue - 20)]
+    [DefaultExecutionOrder(int.MinValue + 20)]
     public sealed class HostSettings : ScriptableObject, IListener<PlayValidationEvent>
     {
         private static HostSettings? singleton;
@@ -77,16 +77,14 @@ namespace Library.Unity
             }
         }
 
-        protected override void OnEnable()
+        private void OnEnable()
         {
-            base.OnEnable();
             Singleton = this;
         }
 
-        protected override void OnDisable()
+        private void OnDisable()
         {
-            Singleton = null!;
-            base.OnDisable();
+            Singleton = null;
         }
 
         /// <summary>
