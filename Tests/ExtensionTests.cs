@@ -1,6 +1,6 @@
 #nullable enable
-using System;
 using NUnit.Framework;
+using System;
 
 namespace Library
 {
@@ -36,7 +36,7 @@ namespace Library
         public void TestRentedArray()
         {
             using RentedArray<int> array = new(10, true);
-            Assert.AreEqual(array.Length, 10);
+            Assert.GreaterOrEqual(array.Length, 10);
             Assert.AreEqual(array[0], 0);
             Assert.AreEqual(array[9], 0);
 

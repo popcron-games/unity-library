@@ -6,6 +6,6 @@ namespace Library
     /// </summary>
     public interface IBroadcastListener
     {
-        void Receive<T>(VirtualMachine vm, T e);
+        void Receive<T>(VirtualMachine vm, T e) where T : notnull;
     }
 }
