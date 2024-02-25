@@ -13,10 +13,25 @@ namespace Game
     /// Contains systems to represent the state of a game/program,
     /// with a provided <see cref="IState"/> to carry custom logic.
     /// </summary>
-    public class VirtualMachine : IDisposable
+    public sealed class VirtualMachine : IDisposable
     {
         private static readonly Dictionary<int, VirtualMachine> all = new();
+        private static readonly HashSet<int> ids = new();
         private static readonly IInitialData fallbackEmptyData = new EmptyInitialData();
+
+        /// <summary>
+        /// All virtual machines in existence.
+        /// </summary>
+        public static IEnumerable<VirtualMachine> All
+        {
+            get 
+            {
+                foreach (int id in ids)
+                {
+                    yield return all[id];
+                }
+            }
+        }
 
         private readonly int id;
         private readonly HashSet<int> systems = new();
@@ -34,7 +49,7 @@ namespace Game
         /// </summary>
         public VirtualMachine(int id, IState state, IInitialData? initialData = null)
         {
-            if (all.ContainsKey(id))
+            if (ids.Contains(id))
             {
                 throw new InvalidOperationException($"Virtual machine with ID {id} already exists.");
             }
@@ -46,6 +61,7 @@ namespace Game
                 this.initialData = new WeakReference<IInitialData>(initialData);
             }
 
+            ids.Add(id);
             all.Add(id, this);
             state.Initialize(this);
         }
@@ -55,7 +71,7 @@ namespace Game
         /// </summary>
         public VirtualMachine(int id, IState state, IInitialData initialData, params Type[] initialSystemTypes)
         {
-            if (all.ContainsKey(id))
+            if (ids.Contains(id))
             {
                 throw new InvalidOperationException($"Virtual machine with ID {id} already exists.");
             }
@@ -66,6 +82,7 @@ namespace Game
                 this.initialData = new WeakReference<IInitialData>(initialData);
             }
 
+            ids.Add(id);
             all.Add(id, this);
             foreach (Type systemType in initialSystemTypes)
             {
@@ -111,6 +128,7 @@ namespace Game
 
             state.Finalize(this);
             all.Remove(id);
+            ids.Remove(id);
         }
 
         public override string ToString()

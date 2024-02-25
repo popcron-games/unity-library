@@ -16,6 +16,7 @@ namespace Game
         private bool handled;
 
         public bool Handled => handled;
+        public object? Result => result;
         public IFunctionDefinition Function => function;
 
         public InvokeFunctionRequest(IFunctionDefinition function)
@@ -49,6 +50,11 @@ namespace Game
         {
             possibleValue = result;
             return handled;
+        }
+
+        public static InvokeFunctionRequest Create<T>(T function) where T : IFunctionDefinition
+        {
+            return new InvokeFunctionRequest(function);
         }
     }
 }
