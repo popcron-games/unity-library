@@ -1,7 +1,10 @@
 ﻿using System;
 
-namespace Library.Events
+namespace Game.Events
 {
+    /// <summary>
+    /// Occurs before a system is removed from a <see cref="VirtualMachine"/>.
+    /// </summary>
     public readonly struct SystemRemoved
     {
         public readonly VirtualMachine vm;

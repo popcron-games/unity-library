@@ -1,9 +1,10 @@
 ﻿#nullable enable
+using Game;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace Library.Systems.Extra
+namespace Game.Systems
 {
     /// <summary>
     /// Makes sure that all systems that are <typeparamref name="T"/> are added to the <see cref="VirtualMachine"/> instance.

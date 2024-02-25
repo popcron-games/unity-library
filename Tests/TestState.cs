@@ -1,17 +1,19 @@
 #nullable enable
-namespace Library
+using Game;
+
+namespace UnityLibrary
 {
-    public class TestState : IState
+    public class TestState : VirtualMachine.IState
     {
         public bool initialized;
         public bool finalized;
 
-        void IState.Initialize(VirtualMachine vm)
+        void VirtualMachine.IState.Initialize(VirtualMachine vm)
         {
             initialized = true;
         }
 
-        void IState.Finalize(VirtualMachine vm)
+        void VirtualMachine.IState.Finalize(VirtualMachine vm)
         {
             finalized = true;
         }

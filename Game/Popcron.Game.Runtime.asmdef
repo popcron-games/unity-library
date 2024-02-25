@@ -1,0 +1,16 @@
+{
+    "name": "Popcron.Game.Runtime",
+    "rootNamespace": "Game",
+    "references": [
+        "GUID:67d1ad6c0011bf04fb673d67771db05a"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

@@ -1,7 +1,7 @@
 #nullable enable
 using UnityEditor;
 
-namespace Library.Unity
+namespace UnityLibrary.Unity
 {
     [CustomEditor(typeof(CustomMonoBehaviour), true)]
     public class CustomMonoBehaviourEditor : CustomObjectEditor

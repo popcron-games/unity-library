@@ -1,24 +1,26 @@
 ﻿#nullable enable
-using Library;
-using Library.Systems;
-using Library.Unity;
+using Game;
+using UnityLibrary.Systems;
 
-/// <summary>
-/// Custom implementation of a <see cref="UnityEngine.ScriptableObject"/>
-/// that is fetchable from <see cref="UnityObjects"/> and receives events when implementing <see cref="IListener{T}"/>.
-/// </summary>
-public abstract class CustomScriptableObject : UnityEngine.ScriptableObject
+namespace UnityLibrary
 {
-    protected static VirtualMachine VM => Host.VirtualMachine;
-    protected static UnityObjects Objects => VM.GetSystem<UnityObjects>();
-
-    protected virtual void OnEnable()
+    /// <summary>
+    /// Custom implementation of a <see cref="UnityEngine.ScriptableObject"/>
+    /// that is fetchable from <see cref="UnityObjects"/> and receives events when implementing <see cref="IListener{T}"/>.
+    /// </summary>
+    public abstract class CustomScriptableObject : UnityEngine.ScriptableObject
     {
-        Objects.Register(this);
-    }
+        protected static VirtualMachine VM => UnityApplication.VM;
+        protected static UnityObjects Objects => VM.GetSystem<UnityObjects>();
 
-    protected virtual void OnDisable()
-    {
-        Objects.Unregister(this);
+        protected virtual void OnEnable()
+        {
+            Objects.TryRegister(this); //when saving in editor it may happen twice
+        }
+
+        protected virtual void OnDisable()
+        {
+            Objects.TryUnregister(this);
+        }
     }
 }

@@ -3,7 +3,7 @@ using System.Text;
 using UnityEditor;
 using UnityEngine.SceneManagement;
 
-namespace Library.Functions
+namespace UnityLibrary.Functions
 {
     public readonly struct BackupOpenedScenes
     {

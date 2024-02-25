@@ -1,14 +1,15 @@
 #nullable enable
-using Library.Functions;
-using Library.Systems;
+using Game;
 using System;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityLibrary.Functions;
+using UnityLibrary.Systems;
 using UnityToolbarExtender;
 
-namespace Library.Unity
+namespace UnityLibrary.Unity
 {
     public class CustomPlayButton : IDisposable
     {
@@ -31,7 +32,7 @@ namespace Library.Unity
         {
             if (change == PlayModeStateChange.EnteredEditMode)
             {
-                EditorPrefs.SetBool(Host.PlayFromStartKey, false);
+                EditorPrefs.SetBool(UnityApplication.PlayFromStartKey, false);
                 RestoreOpenedScenes.Invoke();
                 UnloadEmptyScenes();
             }
@@ -52,7 +53,7 @@ namespace Library.Unity
         private void OnToolbarGUI()
         {
             GUILayout.FlexibleSpace();
-            VirtualMachine vm = Host.VirtualMachine;
+            VirtualMachine vm = UnityApplication.VM;
             GUI.enabled = !EditorApplication.isPlaying;
             EditorGUILayout.BeginHorizontal();
             GUILayout.Label("Test:");
@@ -89,7 +90,7 @@ namespace Library.Unity
 
         private void EnterPlay()
         {
-            EditorPrefs.SetBool(Host.PlayFromStartKey, true);
+            EditorPrefs.SetBool(UnityApplication.PlayFromStartKey, true);
             BackupOpenedScenes.Invoke();
             EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
             EditorBuildSettingsScene[] buildScenes = EditorBuildSettings.scenes;

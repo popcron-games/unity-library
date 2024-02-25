@@ -1,7 +1,7 @@
 #nullable enable
 using UnityEngine;
 
-namespace Library.Components
+namespace UnityLibrary.Components
 {
     [AddComponentMenu("Physics/Gravity")]
     public class PhysicsGravity : CustomMonoBehaviour

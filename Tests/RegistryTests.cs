@@ -1,14 +1,15 @@
 #nullable enable
+using Game.Library;
 using NUnit.Framework;
 
-namespace Library
+namespace UnityLibrary
 {
     public class RegistryTests
     {
         [Test]
         public void TestAdding()
         {
-            Registry<object> registry = new();
+            Registry registry = new();
             registry.Register(new Apple());
             Assert.AreEqual(1, registry.Count);
 
@@ -17,12 +18,13 @@ namespace Library
 
             registry.Register(new Coal());
             Assert.AreEqual(3, registry.Count);
+            Assert.AreEqual(3, registry.All.Count);
         }
 
         [Test]
         public void TestRemoving()
         {
-            Registry<object> registry = new();
+            Registry registry = new();
             Apple apple = new();
             registry.Register(apple);
             Assert.AreEqual(1, registry.Count);
@@ -39,12 +41,13 @@ namespace Library
 
             registry.Unregister(coal);
             Assert.AreEqual(1, registry.Count);
+            Assert.AreEqual(1, registry.All.Count);
         }
 
         [Test]
         public void TestPolling()
         {
-            Registry<IMaterial> registry = new();
+            Registry registry = new();
             registry.Register(new Apple());
             registry.Register(new Beets());
             registry.Register(new Coal());
@@ -57,12 +60,13 @@ namespace Library
 
             var materials = registry.GetAllThatAre<IMaterial>();
             Assert.AreEqual(3, materials.Count);
+            Assert.AreEqual(3, registry.All.Count);
         }
 
         [Test]
         public void TestPollingAfterRemoving()
         {
-            Registry<IMaterial> registry = new();
+            Registry registry = new();
             Apple apple = new();
             registry.Register(apple);
             registry.Register(new Beets());
@@ -78,12 +82,13 @@ namespace Library
 
             var materials = registry.GetAllThatAre<IMaterial>();
             Assert.AreEqual(2, materials.Count);
+            Assert.AreEqual(2, registry.All.Count);
         }
 
         [Test]
         public void TestFilling()
         {
-            Registry<IMaterial> registry = new();
+            Registry registry = new();
             registry.Register(new Apple());
             registry.Register(new Beets());
             registry.Register(new Coal());

@@ -1,16 +1,17 @@
 ﻿#nullable enable
-using Library;
-using Library.Systems;
-using Library.Unity;
+using Game;
+using System;
 using System.Threading;
 using UnityEngine;
+using UnityLibrary;
+using UnityLibrary.Systems;
 
-public abstract class CustomMonoBehaviour : UnityEngine.MonoBehaviour
+public abstract class CustomMonoBehaviour : MonoBehaviour
 {
-    protected static VirtualMachine VM => Host.VirtualMachine;
-    protected static UnityObjects Objects => Host.VirtualMachine.GetSystem<UnityObjects>();
+    protected static VirtualMachine VM => UnityApplication.VM;
+    protected static UnityObjects UnityObjects => VM.GetSystem<UnityObjects>();
 
-    private CancellationTokenSource? disableCts = null;
+    private CancellationTokenSource? enabledLifetime = null;
 
     /// <summary>
     /// Cancellation token thats raised when <see cref="OnDisable"/> is called.
@@ -19,27 +20,43 @@ public abstract class CustomMonoBehaviour : UnityEngine.MonoBehaviour
     {
         get
         {
-            if (disableCts is null)
+#if UNITY_EDITOR
+            if (enabledLifetime is null)
             {
-                disableCts = new CancellationTokenSource();
+                throw new InvalidOperationException("Attempting to retrieve token representing the enabled state of the component, but it hasn't been enabled yet.");
             }
+#endif
 
-            return disableCts.Token;
+            return enabledLifetime.Token;
         }
     }
 
     protected virtual void OnEnable()
     {
-        Objects.Register(this);
+#if UNITY_EDITOR
+        if (enabledLifetime is not null)
+        {
+            throw new InvalidOperationException("Attempting to enable a component that's already enabled.");
+        }
+#endif
+        enabledLifetime = new();
+        UnityObjects.Register(this);
     }
 
     protected virtual void OnDisable()
     {
-        if (disableCts is not null)
+        UnityObjects.Unregister(this);
+        if (enabledLifetime is not null)
         {
-            disableCts.Cancel();
+            enabledLifetime.Cancel();
+            enabledLifetime.Dispose();
+            enabledLifetime = null;
         }
-
-        Objects.Unregister(this);
+        else
+        {
+#if UNITY_EDITOR
+            throw new InvalidOperationException("Attempting to disable a component that hasn't been enabled yet.");
+#endif
+        }
     }
 }

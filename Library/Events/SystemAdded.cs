@@ -1,7 +1,10 @@
 ﻿using System;
 
-namespace Library.Events
+namespace Game.Events
 {
+    /// <summary>
+    /// Occurs after a system is added to a <see cref="VirtualMachine"/>.
+    /// </summary>
     public readonly struct SystemAdded
     {
         public readonly VirtualMachine vm;

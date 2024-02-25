@@ -3,7 +3,7 @@ using System;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 
-namespace Library.Functions
+namespace UnityLibrary.Functions
 {
     public readonly struct RestoreOpenedScenes
     {

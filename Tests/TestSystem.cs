@@ -1,8 +1,9 @@
 #nullable enable
+using Game;
 using System;
 using System.Collections.Generic;
 
-namespace Library
+namespace UnityLibrary
 {
     public class TestSystem : IDisposable, IListener<TestEvent>
     {
@@ -20,7 +21,7 @@ namespace Library
             disposed = true;
         }
 
-        void IListener<TestEvent>.Receive(VirtualMachine vm, TestEvent e)
+        void IListener<TestEvent>.Receive(VirtualMachine vm, ref TestEvent e)
         {
             events.Add(e);
         }

@@ -1,11 +1,14 @@
 ﻿#nullable enable
+using Game;
+using System;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
+using UnityLibrary.Unity;
 
-namespace Library.Unity
+namespace UnityLibrary.Systems
 {
-    public class InputSystemEventDispatcher
+    public class InputSystemEventDispatcher : IDisposable
     {
         private readonly VirtualMachine vm;
 
@@ -20,15 +23,28 @@ namespace Library.Unity
             }
         }
 
+        public void Dispose()
+        {
+            foreach (InputDevice device in InputSystem.devices)
+            {
+                OnDeviceChange(device, InputDeviceChange.Removed);
+            }
+
+            InputSystem.onDeviceChange -= OnDeviceChange;
+            InputSystem.onEvent -= OnInputEvent;
+        }
+
         private void OnDeviceChange(InputDevice device, InputDeviceChange change)
         {
             if (change == InputDeviceChange.Added)
             {
-                vm.Broadcast(new InputDeviceAdded(device));
+                InputDeviceAdded ev = new(device.deviceId);
+                vm.Broadcast(ref ev);
             }
             else if (change == InputDeviceChange.Removed)
             {
-                vm.Broadcast(new InputDeviceRemoved(device));
+                InputDeviceRemoved ev = new(device.deviceId);
+                vm.Broadcast(ref ev);
             }
         }
 
@@ -37,6 +53,7 @@ namespace Library.Unity
             //ignore anything that isnt a state event
             if (!eventPtr.IsA<StateEvent>() && !eventPtr.IsA<DeltaStateEvent>()) return;
 
+            int deviceId = device.deviceId;
             foreach (var control in eventPtr.EnumerateChangedControls())
             {
                 if (control is ButtonControl buttonControl)
@@ -45,16 +62,19 @@ namespace Library.Unity
                     bool pressed = buttonControl.ReadValueFromEvent(eventPtr) > 0.5f;
                     if (pressed)
                     {
-                        vm.Broadcast(new InputControlPressed(control));
+                        InputControlPressed ev = new(deviceId, control.path);
+                        vm.Broadcast(ref ev);
                     }
                     else
                     {
-                        vm.Broadcast(new InputControlReleased(control));
+                        InputControlReleased ev = new(deviceId, control.path);
+                        vm.Broadcast(ref ev);
                     }
                 }
                 else
                 {
-                    vm.Broadcast(new InputControlChanged(control));
+                    InputControlChanged ev = new(deviceId, control.path);
+                    vm.Broadcast(ref ev);
                 }
             }
         }

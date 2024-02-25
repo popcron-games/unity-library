@@ -1,66 +1,116 @@
 ﻿#nullable enable
-using Library.Events;
+using Game.Events;
+using Game.Library;
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Text;
 
-namespace Library
+namespace Game
 {
     /// <summary>
-    /// Contains systems to represent the state of a game/program.
+    /// Contains systems to represent the state of a game/program,
+    /// with a provided <see cref="IState"/> to carry custom logic.
     /// </summary>
     public class VirtualMachine : IDisposable
     {
-        public event Action onBroadcast = delegate { };
+        private static readonly Dictionary<int, VirtualMachine> all = new();
+        private static readonly IInitialData fallbackEmptyData = new EmptyInitialData();
 
         private readonly int id;
         private readonly HashSet<int> systems = new();
+        private readonly HashSet<int> createdSystems = new();
         private readonly Dictionary<int, object> systemToObject = new();
-        private readonly Registry<object> registry = new();
+        private readonly Registry systemRegistry = new();
         private readonly IState state;
-        private bool initialized;
+        private readonly WeakReference<IInitialData>? initialData;
         private bool disposed;
 
-        public IReadOnlyCollection<object> Systems => registry.All;
+        public IReadOnlyCollection<object> Systems => systemRegistry.All;
 
-        public VirtualMachine(int id, IState state)
+        /// <summary>
+        /// Creates an empty virtual machine with the given <see cref="IState"/> and initializes it.
+        /// </summary>
+        public VirtualMachine(int id, IState state, IInitialData? initialData = null)
         {
+            if (all.ContainsKey(id))
+            {
+                throw new InvalidOperationException($"Virtual machine with ID {id} already exists.");
+            }
+
             this.id = id;
             this.state = state;
+            if (initialData is not null)
+            {
+                this.initialData = new WeakReference<IInitialData>(initialData);
+            }
+
+            all.Add(id, this);
+            state.Initialize(this);
+        }
+
+        /// <summary>
+        /// Creates an empty virtual machine with the given state, and creates the given systems before initializing <see cref="IState"/>.
+        /// </summary>
+        public VirtualMachine(int id, IState state, IInitialData initialData, params Type[] initialSystemTypes)
+        {
+            if (all.ContainsKey(id))
+            {
+                throw new InvalidOperationException($"Virtual machine with ID {id} already exists.");
+            }
+
+            this.state = state;
+            if (initialData is not null)
+            {
+                this.initialData = new WeakReference<IInitialData>(initialData);
+            }
+
+            all.Add(id, this);
+            foreach (Type systemType in initialSystemTypes)
+            {
+                AddSystem(systemType);
+            }
+
+            state.Initialize(this);
         }
 
         public override int GetHashCode()
         {
-            return id;
+            return id * 397;
         }
 
-        public void Initialize()
+        public IInitialData GetInitialData()
         {
-            if (initialized)
+            if (initialData is not null && initialData.TryGetTarget(out IInitialData? target))
             {
-                throw new Exception("Virtual machine is already initialized.");
+                return target;
             }
-
-            initialized = true;
-            state.Initialize(this);
+            else
+            {
+                return fallbackEmptyData;
+            }
         }
 
         public void Dispose()
         {
-            if (!initialized)
-            {
-                throw new Exception("Virtual machine is not initialized to dispose.");
-            }
-
             if (disposed)
             {
                 throw new Exception("Virtual machine is already disposed.");
             }
 
             disposed = true;
+            foreach (int hashCode in createdSystems)
+            {
+                object createdSystem = RemoveSystem(hashCode);
+                if (createdSystem is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
+
             state.Finalize(this);
+            all.Remove(id);
         }
 
         public override string ToString()
@@ -73,7 +123,7 @@ namespace Library
 
         public bool ContainsSystem(Type type)
         {
-            IReadOnlyCollection<object> systems = registry.GetAllThatAre(type);
+            IReadOnlyCollection<object> systems = systemRegistry.GetAllThatAre(type);
             return systems.Count > 0;
         }
 
@@ -89,7 +139,7 @@ namespace Library
 
         public object GetSystem(Type type)
         {
-            IReadOnlyList<object> systems = registry.GetAllThatAre(type);
+            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(type);
             if (systems.Count > 0)
             {
                 return systems[0];
@@ -119,12 +169,12 @@ namespace Library
 
         public IReadOnlyCollection<object> GetSystemsThatAre(Type type)
         {
-            return registry.GetAllThatAre(type);
+            return systemRegistry.GetAllThatAre(type);
         }
 
         public IReadOnlyCollection<object> GetSystemsThatAre<T>()
         {
-            return registry.GetAllThatAre<T>();
+            return systemRegistry.GetAllThatAre<T>();
         }
 
         public int AddSystem(object system)
@@ -132,11 +182,12 @@ namespace Library
             int hash = system.GetHashCode();
             if (systems.Add(hash))
             {
-                registry.Register(system);
+                systemRegistry.Register(system);
                 systemToObject.Add(hash, system);
 
                 Type type = system.GetType();
-                Broadcast(new SystemAdded(this, type));
+                SystemAdded ev = new(this, type);
+                Broadcast(ref ev);
                 return hash;
             }
             else
@@ -145,15 +196,51 @@ namespace Library
             }
         }
 
+        /// <summary>
+        /// Creates and adds a new system of type <typeparamref name="T"/>.
+        /// Constructor can be either default or a single <see cref="VirtualMachine"/> input parameter.
+        /// </summary>
+        public T AddSystem<T>()
+        {
+            return (T)AddSystem(typeof(T));
+        }
+
+        /// <summary>
+        /// Creates and adds a new system of type <typeparamref name="T"/>.
+        /// Constructor can be either default or a single <see cref="VirtualMachine"/> input parameter.
+        /// </summary>
+        public object AddSystem(Type systemType)
+        {
+            if (systemType.GetConstructor(new Type[] { typeof(VirtualMachine) }) is ConstructorInfo constructorWithVm)
+            {
+                object system = constructorWithVm.Invoke(new object[] { this });
+                int hash = AddSystem(system);
+                createdSystems.Add(hash);
+                return system;
+            }
+            else if (systemType.GetConstructor(Type.EmptyTypes) is ConstructorInfo defaultConstructor)
+            {
+                object system = defaultConstructor.Invoke(Array.Empty<object>());
+                int hash = AddSystem(system);
+                createdSystems.Add(hash);
+                return system;
+            }
+            else
+            {
+                throw new InvalidOperationException($"System type {systemType} does not have a constructor that takes a {nameof(VirtualMachine)} or no-argument constructor");
+            }
+        }
+
         public object RemoveSystem(Type type)
         {
-            IReadOnlyList<object> systems = registry.GetAllThatAre(type);
+            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(type);
             if (systems.Count > 0)
             {
                 object system = systems[0];
                 int hash = system.GetHashCode();
-                Broadcast(new SystemRemoved(this, type));
-                registry.Unregister(system);
+                SystemRemoved ev = new(this, type);
+                Broadcast(ref ev);
+                systemRegistry.Unregister(system);
                 systemToObject.Remove(hash);
                 this.systems.Remove(hash);
                 return system;
@@ -175,8 +262,9 @@ namespace Library
             {
                 object system = systemToObject[hashCode];
                 Type type = system.GetType();
-                Broadcast(new SystemRemoved(this, type));
-                registry.Unregister(system);
+                SystemRemoved ev = new(this, type);
+                Broadcast(ref ev);
+                systemRegistry.Unregister(system);
                 systemToObject.Remove(hashCode);
                 return system;
             }
@@ -188,7 +276,7 @@ namespace Library
 
         public bool TryGetSystem<T>([NotNullWhen(true)] out T? system)
         {
-            IReadOnlyList<object> systems = registry.GetAllThatAre<T>();
+            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre<T>();
             if (systems.Count > 0)
             {
                 system = (T)systems[0];
@@ -201,29 +289,66 @@ namespace Library
             }
         }
 
-        public void Broadcast<T>(T e)
+        /// <summary>
+        /// Broadcasts this event to all <see cref="IListener{T}"/> of it,
+        /// as well as all <see cref="IAnyListener"/> instances.
+        /// </summary>
+        public void Broadcast<T>(ref T ev) where T : notnull
         {
-            List<object> listeners = (List<object>)registry.GetAllThatAre<IListener<T>>();
-            List<object> broadcastListeners = (List<object>)registry.GetAllThatAre<IBroadcastListener>();
-            object[] buffer = ArrayPool<object>.Shared.Rent(listeners.Count > broadcastListeners.Count ? listeners.Count : broadcastListeners.Count);
+            List<object> listeners = (List<object>)systemRegistry.GetAllThatAre<IListener<T>>();
+            List<object> broadcastListeners = (List<object>)systemRegistry.GetAllThatAre<IAnyListener>();
+            int bufferLength = listeners.Count > broadcastListeners.Count ? listeners.Count : broadcastListeners.Count;
+            using RentedBuffer<object> buffer = new(bufferLength);
             int length = listeners.Count;
-            listeners.CopyTo(buffer);
+            buffer.CopyFrom(listeners);
             for (int i = 0; i < length; i++)
             {
                 IListener<T> listener = (IListener<T>)buffer[i];
-                listener.Receive(this, e);
+                listener.Receive(this, ref ev);
             }
 
             length = broadcastListeners.Count;
-            broadcastListeners.CopyTo(buffer);
+            buffer.CopyFrom(broadcastListeners);
             for (int i = 0; i < length; i++)
             {
-                IBroadcastListener listener = (IBroadcastListener)buffer[i];
-                listener.Receive(this, e);
+                IAnyListener listener = (IAnyListener)buffer[i];
+                listener.Receive(this, ref ev);
             }
+        }
 
-            ArrayPool<object>.Shared.Return(buffer);
-            onBroadcast.Invoke();
+        public static VirtualMachine Get(int id)
+        {
+            return all[id];
+        }
+
+        /// <summary>
+        /// Represents the constructor and <see cref="IDisposable.Dispose"/> events of a <see cref="VirtualMachine"/>.
+        /// </summary>
+        public interface IState
+        {
+            /// <summary>
+            /// Invoked when a <see cref="VirtualMachine"/> has been created.
+            /// </summary>
+            void Initialize(VirtualMachine vm);
+
+            /// <summary>
+            /// Invoked when a <see cref="VirtualMachine"/> is being disposed.
+            /// </summary>
+            void Finalize(VirtualMachine vm);
+        }
+
+        public interface IInitialData : IRegistryView
+        {
+        }
+
+        internal class EmptyInitialData : IInitialData
+        {
+            private readonly List<object> empty = new();
+
+            IReadOnlyList<object> IRegistryView.GetAllThatAre<T>()
+            {
+                return empty;
+            }
         }
     }
 }

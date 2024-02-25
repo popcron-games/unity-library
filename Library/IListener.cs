@@ -1,11 +1,11 @@
 ﻿#nullable enable
-namespace Library
+namespace Game
 {
     /// <summary>
     /// Systems implementing this interface will receive events when using <see cref="VirtualMachine.Broadcast{T}"/>
     /// </summary>
-    public interface IListener<T>
+    public interface IListener<T> where T : notnull
     {
-        void Receive(VirtualMachine vm, T e);
+        void Receive(VirtualMachine vm, ref T e);
     }
 }
