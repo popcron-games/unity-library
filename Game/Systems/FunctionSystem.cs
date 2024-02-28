@@ -242,6 +242,13 @@ namespace Game.Systems
             return functions.Contains(functionHash);
         }
 
+        public bool HasFunction<T>() where T : IFunctionDefinition
+        {
+            ReadOnlySpan<char> path = GetPath<T>();
+            int parameterCount = GetParameterCount<T>();
+            return HasFunction(path, parameterCount);
+        }
+
         /// <summary>
         /// Retreives the path of the function.
         /// </summary>
