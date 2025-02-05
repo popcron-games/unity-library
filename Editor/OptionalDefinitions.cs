@@ -91,7 +91,7 @@ namespace UnityLibrary.Editor
                             continue;
                         }
 
-                        result.Add(rightToken.GetDjb2HashCode());
+                        result.Add(GetHashCode(rightToken));
                     }
                 }
 
@@ -103,7 +103,7 @@ namespace UnityLibrary.Editor
 
         public static bool? IsOptional(SerializedProperty property)
         {
-            int hash = property.propertyPath.GetDjb2HashCode();
+            int hash = GetHashCode(property.propertyPath);
             if (isOptional.TryGetValue(hash, out bool result))
             {
                 return result;
@@ -111,6 +111,20 @@ namespace UnityLibrary.Editor
             else
             {
                 return null;
+            }
+        }
+
+        private static int GetHashCode(ReadOnlySpan<char> text)
+        {
+            unchecked
+            {
+                int hash = 17;
+                for (int i = 0; i < text.Length; i++)
+                {
+                    hash = hash * 31 + text[i];
+                }
+
+                return hash;
             }
         }
     }

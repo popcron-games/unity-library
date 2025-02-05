@@ -153,7 +153,7 @@ namespace UnityLibrary
                     index = -1;
                 }
 
-                public void Dispose()
+                public readonly void Dispose()
                 {
                 }
             }

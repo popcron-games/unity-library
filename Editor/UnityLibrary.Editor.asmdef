@@ -2,11 +2,9 @@
     "name": "UnityLibrary.Editor",
     "rootNamespace": "UnityLibrary",
     "references": [
-        "ToolbarExtender.Editor",
         "Unity.Collections",
         "UnityLibrary",
-        "UnityLibrary.Runtime",
-        "UnityLibrary.Engine"
+        "UnityLibrary.Runtime"
     ],
     "includePlatforms": [
         "Editor"
