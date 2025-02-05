@@ -1,6 +1,4 @@
 #nullable enable
-using Game;
-
 namespace UnityLibrary
 {
     public class TestState : VirtualMachine.IState

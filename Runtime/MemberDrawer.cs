@@ -2,7 +2,7 @@
 using System;
 using UnityEngine;
 
-namespace UnityLibrary.Unity
+namespace UnityLibrary.Drawers
 {
     /// <summary>
     /// A base type for automatically created for drawing an inspector GUI for <typeparamref name="T"/> values, that aren't serialized by Unity.

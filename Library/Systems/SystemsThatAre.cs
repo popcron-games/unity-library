@@ -1,25 +1,25 @@
 ﻿#nullable enable
-using Game;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace Game.Systems
+namespace UnityLibrary.Systems
 {
     /// <summary>
-    /// Makes sure that all systems that are <typeparamref name="T"/> are added to the <see cref="VirtualMachine"/> instance.
+    /// Makes sure that all systems that are <typeparamref name="T"/> are added to the <see cref="VirtualMachine"/> instance
+    /// using reflection.
     /// </summary>
     public class SystemsThatAre<T> : IDisposable where T : notnull
     {
-        private readonly HashSet<int> instancesAdded = new();
+        private readonly HashSet<object> systemsAdded = new();
         private readonly VirtualMachine vm;
         private readonly Type desiredType;
 
-        public SystemsThatAre(VirtualMachine vm, Handle handleCallback)
+        public SystemsThatAre(VirtualMachine vm, Creation createCallback)
         {
             this.vm = vm;
             desiredType = typeof(T);
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (Assembly assembly in AssemblyCache.All)
             {
                 Type[] types;
                 try
@@ -37,9 +37,9 @@ namespace Game.Systems
                     if (type.IsInterface) continue;
                     if (desiredType.IsAssignableFrom(type))
                     {
-                        object system = handleCallback(type, vm);
-                        int hash = vm.AddSystem(system);
-                        instancesAdded.Add(hash);
+                        object system = createCallback(type, vm);
+                        vm.AddSystem(system);
+                        systemsAdded.Add(system);
                     }
                 }
             }
@@ -47,17 +47,18 @@ namespace Game.Systems
 
         public void Dispose()
         {
-            foreach (int hash in instancesAdded)
+            foreach (object system in systemsAdded)
             {
-                if (vm.RemoveSystem(hash) is IDisposable disposable)
+                vm.RemoveSystem(system);
+                if (system is IDisposable disposable)
                 {
                     disposable.Dispose();
                 }
             }
 
-            instancesAdded.Clear();
+            systemsAdded.Clear();
         }
 
-        public delegate T Handle(Type type, VirtualMachine vm);
+        public delegate T Creation(Type type, VirtualMachine vm);
     }
 }

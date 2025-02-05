@@ -1,5 +1,5 @@
 ﻿#nullable enable
-namespace Game
+namespace UnityLibrary
 {
     /// <summary>
     /// Systems implementing this interface will receive events when using <see cref="VirtualMachine.Broadcast{T}"/>

@@ -1,26 +1,32 @@
 #nullable enable
-using System;
-using Game;
-using Game.Systems;
 using NUnit.Framework;
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityLibrary.Systems;
 
 namespace UnityLibrary
 {
     public class VirtualMachineTests
     {
+        private VirtualMachine CreateVM(out TestState state)
+        {
+            state = new();
+            VirtualMachine vm = new(state);
+            return vm;
+        }
+
         [Test]
         public void TestVMInitialization1()
         {
-            TestState state = new();
-            using VirtualMachine vm = new(0, state);
+            using VirtualMachine vm = CreateVM(out TestState state);
             Assert.IsTrue(state.initialized);
         }
 
         [Test]
         public void TestDisposing1()
         {
-            TestState state = new();
-            VirtualMachine vm = new(0, state);
+            VirtualMachine vm = CreateVM(out TestState state);
             vm.Dispose();
             Assert.IsTrue(state.finalized);
         }
@@ -28,8 +34,7 @@ namespace UnityLibrary
         [Test]
         public void TestDisposingTwice()
         {
-            TestState state = new();
-            VirtualMachine vm = new(0, state);
+            VirtualMachine vm = CreateVM(out TestState state);
             vm.Dispose();
             Assert.Throws<Exception>(() =>
             {
@@ -41,8 +46,7 @@ namespace UnityLibrary
         public void TestAddingSystems1()
         {
             string value = Guid.NewGuid().ToString();
-            TestState state = new();
-            using VirtualMachine vm = new(0, state);
+            using VirtualMachine vm = CreateVM(out TestState state);
             vm.AddSystem(new TestSystem(value));
             Assert.IsTrue(vm.ContainsSystem<TestSystem>());
         }
@@ -51,8 +55,7 @@ namespace UnityLibrary
         public void TestRetreivingSystem()
         {
             string value = Guid.NewGuid().ToString();
-            TestState state = new();
-            using VirtualMachine vm = new(0, state);
+            using VirtualMachine vm = CreateVM(out TestState state);
             int hash = vm.AddSystem(new TestSystem(value));
             Assert.IsTrue(vm.ContainsSystem(hash));
 
@@ -73,8 +76,7 @@ namespace UnityLibrary
         public void TestRemovingSystems1()
         {
             string value = Guid.NewGuid().ToString();
-            TestState state = new();
-            using VirtualMachine vm = new(0, state);
+            using VirtualMachine vm = CreateVM(out TestState state);
             int hash = vm.AddSystem(new TestSystem(value));
             Assert.IsTrue(vm.ContainsSystem(hash));
 
@@ -83,15 +85,24 @@ namespace UnityLibrary
         }
 
         [Test]
+        public void RestRemoveSystemByType()
+        {
+            using VirtualMachine vm = CreateVM(out TestState state);
+            vm.AddSystem(new TestSystem(Guid.NewGuid().ToString()));
+            Assert.IsTrue(vm.ContainsSystem<TestSystem>());
+            vm.RemoveSystem<TestSystem>();
+            Assert.IsFalse(vm.ContainsSystem<TestSystem>());
+        }
+
+        [Test]
         public void TestBroadcasting()
         {
-            using VirtualMachine vm = new(0, new TestState());
+            using VirtualMachine vm = CreateVM(out TestState state);
             TestSystem system = new(Guid.NewGuid().ToString());
             vm.AddSystem(system);
 
             int value = Guid.NewGuid().GetHashCode();
-            var ev = new TestEvent(value);
-            vm.Broadcast(ref ev);
+            vm.Broadcast(new DummyTestEvent(value));
 
             Assert.AreEqual(system.events.Count, 1);
             Assert.AreEqual(system.events[0].value, value);
@@ -100,7 +111,7 @@ namespace UnityLibrary
         [Test]
         public void TestSystemsThatAre()
         {
-            using VirtualMachine vm = new(0, new TestState());
+            using VirtualMachine vm = CreateVM(out TestState state);
             vm.AddSystem(new SystemsThatAre<IMachine>(vm, CreateSystem));
             Assert.IsTrue(vm.ContainsSystem<Aeroplane>());
             Assert.IsTrue(vm.ContainsSystem<Submarine>());
@@ -117,14 +128,18 @@ namespace UnityLibrary
         [Test]
         public void TestSystemsThatAreWithAttribute()
         {
-            using VirtualMachine vm = new(0, new TestState());
+            using VirtualMachine vm = CreateVM(out TestState state);
             vm.AddSystem<SystemsWithAttribute<SystemAttribute>>();
             Assert.IsTrue(vm.ContainsSystem<Aeroplane>());
             Assert.IsTrue(vm.ContainsSystem<Submarine>());
             Assert.IsTrue(vm.ContainsSystem<Computer>());
 
             Aeroplane aeroplane = vm.GetSystem<Aeroplane>();
+            Assert.AreEqual(4, vm.Systems.Count);
+
             vm.RemoveSystem<SystemsWithAttribute<SystemAttribute>>().Dispose();
+            Assert.AreEqual(0, vm.Systems.Count);
+            Debug.Log(vm.Systems.Count);
             Assert.IsFalse(vm.ContainsSystem<Aeroplane>());
             Assert.IsFalse(vm.ContainsSystem<Submarine>());
             Assert.IsFalse(vm.ContainsSystem<Computer>());
@@ -134,7 +149,7 @@ namespace UnityLibrary
         [Test]
         public void TestCreatingSystems()
         {
-            VirtualMachine vm = new(0, new TestState());
+            VirtualMachine vm = CreateVM(out TestState state);
             object instance = vm.AddSystem(typeof(Aeroplane));
             int hash = instance.GetHashCode();
             Assert.IsTrue(vm.ContainsSystem(hash));
@@ -147,9 +162,9 @@ namespace UnityLibrary
         [Test]
         public void TestSystemsThatAre2()
         {
-            using VirtualMachine vm = new(0, new TestState());
+            using VirtualMachine vm = CreateVM(out TestState state);
             vm.AddSystem(new SystemsThatAre<IMachine>(vm, CreateSystem));
-            var machines = vm.GetSystemsThatAre<IMachine>();
+            IReadOnlyList<IMachine> machines = vm.GetSystemsThatAre<IMachine>();
             Assert.AreEqual(3, machines.Count);
         }
 

@@ -1,5 +1,4 @@
 ﻿#nullable enable
-using Game;
 using UnityLibrary.Systems;
 
 namespace UnityLibrary
@@ -15,7 +14,7 @@ namespace UnityLibrary
 
         protected virtual void OnEnable()
         {
-            Objects.TryRegister(this); //when saving in editor it may happen twice
+            Objects.TryRegister(this);
         }
 
         protected virtual void OnDisable()

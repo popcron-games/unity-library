@@ -1,6 +1,7 @@
-﻿using System;
+﻿#nullable enable
+using System;
 
-namespace Game.Events
+namespace UnityLibrary.Events
 {
     /// <summary>
     /// Occurs before a system is removed from a <see cref="VirtualMachine"/>.

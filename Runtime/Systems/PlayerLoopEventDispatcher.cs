@@ -1,6 +1,4 @@
 ﻿#nullable enable
-using Game;
-using Game.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,6 +16,7 @@ namespace UnityLibrary.Systems
     [DefaultExecutionOrder(int.MinValue + 11)]
     public class UnityEventDispatcher : IDisposable
     {
+        private static UnityEventDispatcher? instance;
         private static GameObject? guiObject;
 
         private readonly VirtualMachine vm;
@@ -25,6 +24,7 @@ namespace UnityLibrary.Systems
 
         public UnityEventDispatcher(VirtualMachine vm)
         {
+            instance = this;
             this.vm = vm;
             PlayerLoopSystem playerLoopSystem = PlayerLoop.GetCurrentPlayerLoop();
             PlayerLoopSystem[] systems = playerLoopSystem.subSystemList;
@@ -54,8 +54,7 @@ namespace UnityLibrary.Systems
 
             Application.quitting += () =>
             {
-                ApplicationStopped ev = new();
-                vm.Broadcast(ref ev);
+                vm.Broadcast(new ApplicationStopped());
                 UnityEngine.Object.DestroyImmediate(guiObject);
             };
         }
@@ -94,38 +93,32 @@ namespace UnityLibrary.Systems
 
         private void Update()
         {
-            float delta = Time.deltaTime;
-            UpdateEvent ev = new(delta);
-            vm.Broadcast(ref ev);
+            vm.Broadcast(new UpdateEvent(Time.deltaTime));
         }
 
         private void FixedUpdate()
         {
-            float delta = Time.fixedDeltaTime;
-            FixedUpdateEvent ev = new(delta);
-            vm.Broadcast(ref ev);
+            vm.Broadcast(new FixedUpdateEvent(Time.fixedDeltaTime));
         }
 
         private void PreUpdate()
         {
-            float delta = Time.deltaTime;
-            PreUpdateEvent ev = new(delta);
-            vm.Broadcast(ref ev);
+            vm.Broadcast(new PreUpdateEvent(Time.deltaTime));
         }
 
         private void PostLateUpdateEvent()
         {
-            float delta = Time.deltaTime;
-            LateUpdateEvent ev = new(delta);
-            vm.Broadcast(ref ev);
+            vm.Broadcast(new LateUpdateEvent(Time.deltaTime));
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ApplicationStarted()
         {
             guiObject = CreateGUIObject();
-            ApplicationStarted ev = new();
-            UnityApplication.VM.Broadcast(ref ev);
+            if (instance is not null)
+            {
+                instance.vm.Broadcast(new ApplicationStarted());
+            }
         }
 
         private static GameObject CreateGUIObject()
@@ -140,8 +133,10 @@ namespace UnityLibrary.Systems
         {
             private void OnGUI()
             {
-                GUIEvent ev = new();
-                UnityApplication.VM.Broadcast(ref ev);
+                if (instance is not null)
+                {
+                    instance.vm.Broadcast(new GUIEvent());
+                }
             }
         }
     }

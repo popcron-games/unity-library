@@ -1,15 +1,14 @@
 #nullable enable
-using Game;
 using System;
 using System.Collections.Generic;
 
 namespace UnityLibrary
 {
-    public class TestSystem : IDisposable, IListener<TestEvent>
+    public class TestSystem : IDisposable, IListener<DummyTestEvent>
     {
         public string value;
         public bool disposed;
-        public readonly List<TestEvent> events = new();
+        public readonly List<DummyTestEvent> events = new();
 
         public TestSystem(string value)
         {
@@ -21,7 +20,7 @@ namespace UnityLibrary
             disposed = true;
         }
 
-        void IListener<TestEvent>.Receive(VirtualMachine vm, ref TestEvent e)
+        void IListener<DummyTestEvent>.Receive(VirtualMachine vm, ref DummyTestEvent e)
         {
             events.Add(e);
         }

@@ -1,6 +1,7 @@
-﻿using System;
+﻿#nullable enable
+using System;
 
-namespace Game.Events
+namespace UnityLibrary.Events
 {
     /// <summary>
     /// Occurs after a system is added to a <see cref="VirtualMachine"/>.

@@ -1,0 +1,26 @@
+{
+    "name": "UnityLibrary.Tests",
+    "rootNamespace": "UnityLibrary",
+    "references": [
+        "GUID:67d1ad6c0011bf04fb673d67771db05a",
+        "GUID:066b8afb53d1b794e8e4c75daeb54466",
+        "GUID:27619889b8ba8c24980f49ee34dbb44a",
+        "GUID:0acc523941302664db1f4e527237feb3",
+        "GUID:33d7fafd97db67145bb04eca400d98b1"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

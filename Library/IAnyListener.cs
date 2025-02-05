@@ -1,5 +1,5 @@
 ﻿#nullable enable
-namespace Game
+namespace UnityLibrary
 {
     /// <summary>
     /// Systems that implement this interface will receive all events broadcast.

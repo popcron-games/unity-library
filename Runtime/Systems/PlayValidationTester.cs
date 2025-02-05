@@ -6,12 +6,8 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
-using Game.Events;
-using Game;
-
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -22,13 +18,19 @@ namespace UnityLibrary.Systems
     public class PlayValidationTester
     {
         /// <summary>
-        /// Event for when validation has passed on an individual <see cref="TestEvent"/> listener.
+        /// Event for when validation has passed on an individual <see cref="Events.Validate"/> listener.
         /// </summary>
         public event Validate? afterValidation;
 
         private readonly Dictionary<Type, bool> typesWithAssetReferences = new();
+        private readonly VirtualMachine vm;
 
-        private void CollectOpenSceneValidators(List<IListener<TestEvent>> listeners)
+        public PlayValidationTester(VirtualMachine vm)
+        {
+            this.vm = vm;
+        }
+
+        private void CollectOpenSceneValidators(List<IListener<Events.Validate>> listeners)
         {
             for (int i = 0; i < SceneManager.loadedSceneCount; i++)
             {
@@ -37,7 +39,7 @@ namespace UnityLibrary.Systems
             }
         }
 
-        private void CollectValidators(Scene scene, List<IListener<TestEvent>> listeners)
+        private void CollectValidators(Scene scene, List<IListener<Events.Validate>> listeners)
         {
             List<GameObject> all = scene.GetAllGameObjects();
             foreach (GameObject g in all)
@@ -46,7 +48,7 @@ namespace UnityLibrary.Systems
             }
         }
 
-        private void CollectValidators(GameObject gameObject, List<IListener<TestEvent>> listeners)
+        private void CollectValidators(GameObject gameObject, List<IListener<Events.Validate>> listeners)
         {
             Component[] components = gameObject.GetComponents<Component>();
             foreach (Component component in components)
@@ -55,7 +57,7 @@ namespace UnityLibrary.Systems
             }
         }
 
-        private void CollectValidators(VirtualMachine vm, List<IListener<TestEvent>> listeners)
+        private void CollectValidators(VirtualMachine vm, List<IListener<Events.Validate>> listeners)
         {
             foreach (object system in vm.Systems)
             {
@@ -63,9 +65,9 @@ namespace UnityLibrary.Systems
             }
         }
 
-        private void CollectValidators(object? value, List<IListener<TestEvent>> listeners)
+        private void CollectValidators(object? value, List<IListener<Events.Validate>> listeners)
         {
-            if (value is IListener<TestEvent> valueIsValidator)
+            if (value is IListener<Events.Validate> valueIsValidator)
             {
                 if (!listeners.Contains(valueIsValidator))
                 {
@@ -114,20 +116,6 @@ namespace UnityLibrary.Systems
                 }
 #endif
             }
-            else if (value is AssetReference assetReference)
-            {
-#if UNITY_EDITOR
-                Object? editorAsset = assetReference.editorAsset;
-                if (editorAsset is GameObject g)
-                {
-                    CollectValidators(g, listeners);
-                }
-#endif
-            }
-            else if (value is UnityObjects objects)
-            {
-                CollectValidators(objects.All, listeners);
-            }
         }
 
         private bool TypeHasFieldsToCheck(Type type)
@@ -145,17 +133,12 @@ namespace UnityLibrary.Systems
                         }
                     }
 
-                    if (typeof(AssetReference).IsAssignableFrom(field.FieldType))
+                    if (typeof(Object).IsAssignableFrom(field.FieldType))
                     {
                         has = true;
                         break;
                     }
-                    else if (typeof(Object).IsAssignableFrom(field.FieldType))
-                    {
-                        has = true;
-                        break;
-                    }
-                    else if (typeof(IListener<TestEvent>).IsAssignableFrom(field.FieldType))
+                    else if (typeof(IListener<Events.Validate>).IsAssignableFrom(field.FieldType))
                     {
                         has = true;
                         break;
@@ -168,14 +151,14 @@ namespace UnityLibrary.Systems
             return has;
         }
 
-        private bool Test(VirtualMachine vm, IEnumerable<IListener<TestEvent>> validators)
+        private bool Test(VirtualMachine vm, IEnumerable<IListener<Events.Validate>> validators)
         {
             bool passed = true;
-            foreach (IListener<TestEvent> validator in validators)
+            foreach (IListener<Events.Validate> validator in validators)
             {
                 try
                 {
-                    TestEvent ev = new();
+                    Events.Validate ev = new();
                     validator.Receive(vm, ref ev);
                     afterValidation?.Invoke(validator);
                 }
@@ -201,7 +184,7 @@ namespace UnityLibrary.Systems
         /// </summary>
         public bool TestOpenedScenes(VirtualMachine vm)
         {
-            List<IListener<TestEvent>> listeners = new();
+            List<IListener<Events.Validate>> listeners = new();
             CollectOpenSceneValidators(listeners);
             return Test(vm, listeners);
         }
@@ -211,13 +194,13 @@ namespace UnityLibrary.Systems
         /// </summary>
         public bool TestStarting(VirtualMachine vm)
         {
-            List<IListener<TestEvent>> listeners = new();
+            List<IListener<Events.Validate>> listeners = new();
             listeners.Add(UnityApplicationSettings.Singleton);
             CollectValidators(vm, listeners);
             return Test(vm, listeners);
         }
 
-        public delegate void Validate(IListener<TestEvent> target);
+        public delegate void Validate(IListener<Events.Validate> target);
 
 #if UNITY_EDITOR
         private static object? GetPropertyValue(SerializedProperty property)

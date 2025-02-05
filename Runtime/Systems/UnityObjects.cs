@@ -1,7 +1,6 @@
 ﻿#nullable enable
-using Game;
-using Game.Library;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -15,19 +14,17 @@ namespace UnityLibrary.Systems
     {
         void IAnyListener.Receive<T>(VirtualMachine vm, ref T ev)
         {
-            using RentedBuffer<object> buffer = new(Count);
-            int count = FillAllThatAre<IListener<T>>(buffer);
-            for (int i = 0; i < count; i++)
+            IReadOnlyList<IListener<T>> list = GetAllThatAre<IListener<T>>();
+            for (int i = 0; i < list.Count; i++)
             {
-                object asset = buffer[i];
+                IListener<T> listener = list[i];
                 try
                 {
-                    IListener<T> listener = (IListener<T>)asset;
                     listener.Receive(vm, ref ev);
                 }
                 catch (Exception ex)
                 {
-                    if (asset is Object unityObj)
+                    if (listener is Object unityObj)
                     {
                         Debug.LogException(ex, unityObj);
                     }

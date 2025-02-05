@@ -2,20 +2,27 @@
 using System;
 using System.Collections.Generic;
 
-namespace Game.Library
+namespace UnityLibrary
 {
     /// <summary>
     /// Allows for efficient retrieval of instances by type.
     /// </summary>
-    public class Registry : IRegistryView
+    public class Registry : IObject
     {
         private static readonly Dictionary<Type, HashSet<Type>> typeToAssignableTypes = new();
 
+        /// <summary>
+        /// Called when an object is registered, happens during <c>OnEnable</c>.
+        /// </summary>
         public Action<object>? onRegistered;
+
+        /// <summary>
+        /// Called when an object is unregistered, happens during <c>OnDisable</c>.
+        /// </summary>
         public Action<object>? onUnregistered;
 
         private readonly HashSet<object> objects = new();
-        private readonly Dictionary<Type, List<object>> assignableTypeToObjects = new();
+        private readonly Dictionary<Type, ArrayList> assignableTypeToObjects = new();
 
         public IReadOnlyCollection<object> All => objects;
         public int Count => objects.Count;
@@ -76,16 +83,14 @@ namespace Game.Library
         {
             foreach (Type assignableType in GetAssignableTypes(value.GetType()))
             {
-                if (assignableTypeToObjects.TryGetValue(assignableType, out List<object>? objects))
+                if (assignableTypeToObjects.TryGetValue(assignableType, out ArrayList? objects))
                 {
                     objects.Add(value);
                 }
                 else
                 {
-                    objects = new List<object>
-                    {
-                        value
-                    };
+                    objects = new ArrayList();
+                    objects.Add(value);
                     assignableTypeToObjects.Add(assignableType, objects);
                 }
             }
@@ -98,7 +103,7 @@ namespace Game.Library
             {
                 foreach (Type assignableType in GetAssignableTypes(type))
                 {
-                    if (assignableTypeToObjects.TryGetValue(assignableType, out List<object>? objects))
+                    if (assignableTypeToObjects.TryGetValue(assignableType, out ArrayList? objects))
                     {
                         objects.Remove(value);
                     }
@@ -106,13 +111,28 @@ namespace Game.Library
             }
         }
 
+        public bool Contains(object value)
+        {
+            return objects.Contains(value);
+        }
+
         /// <summary>
-        /// Returns all instances that are assignable to <typeparamref name="A"/>.
+        /// Returns all instances that are assignable to <typeparamref name="T"/>.
         /// They either implement it if it's an interface, or subtype if a class.
         /// </summary>
-        public IReadOnlyList<object> GetAllThatAre<A>()
+        public IReadOnlyList<T> GetAllThatAre<T>()
         {
-            return GetAllThatAre(typeof(A));
+            Type type = typeof(T);
+            if (assignableTypeToObjects.TryGetValue(type, out ArrayList objects))
+            {
+                return objects.AsReadOnlyList<T>();
+            }
+            else
+            {
+                objects = new();
+                assignableTypeToObjects.Add(type, objects);
+                return objects.AsReadOnlyList<T>();
+            }
         }
 
         /// <summary>
@@ -121,69 +141,15 @@ namespace Game.Library
         /// </summary>
         public IReadOnlyList<object> GetAllThatAre(Type type)
         {
-            if (assignableTypeToObjects.TryGetValue(type, out List<object> objects))
+            if (assignableTypeToObjects.TryGetValue(type, out ArrayList objects))
             {
                 return objects;
             }
             else
             {
-                objects = new List<object>();
+                objects = new ArrayList();
                 assignableTypeToObjects.Add(type, objects);
                 return objects;
-            }
-        }
-
-        /// <summary>
-        /// Copies all instances that are assignable to <typeparamref name="A"/>.
-        /// </summary>
-        public int FillAllThatAre<A>(object[] buffer)
-        {
-            return FillAllThatAre(typeof(A), buffer);
-        }
-
-        /// <summary>
-        /// Copies all instances that are assignable to <typeparamref name="A"/>.
-        /// </summary>
-        public int FillAllThatAre<A>(IList<object> buffer) 
-        {
-            return FillAllThatAre(typeof(A), buffer);
-        }
-
-        /// <summary>
-        /// Copies all instances that are assignable to <typeparamref name="A"/>.
-        /// </summary>
-        public int FillAllThatAre(Type type, object[] buffer)
-        {
-            if (assignableTypeToObjects.TryGetValue(type, out List<object>? objects))
-            {
-                int length = objects.Count > buffer.Length ? buffer.Length : objects.Count;
-                objects.CopyTo(0, buffer, 0, length);
-                return length;
-            }
-            else
-            {
-                return 0;
-            }
-        }
-
-        /// <summary>
-        /// Copies all instances that are assignable to <typeparamref name="A"/>.
-        /// </summary>
-        public int FillAllThatAre(Type type, IList<object> buffer)
-        {
-            if (assignableTypeToObjects.TryGetValue(type, out List<object>? objects))
-            {
-                int length = objects.Count > buffer.Count ? buffer.Count : objects.Count;
-                for (int i = 0; i < length; i++)
-                {
-                    buffer[i] = objects[i];
-                }
-
-                return length;
-            }
-            else
-            {
-                return 0;
             }
         }
 

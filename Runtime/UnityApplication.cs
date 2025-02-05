@@ -3,16 +3,14 @@ using System;
 using UnityEngine;
 using System.Text;
 using System.Runtime.CompilerServices;
-using Random = System.Random;
-using Game;
 using System.Reflection;
-
+using System.Collections.Generic;
 
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
-[assembly: InternalsVisibleTo("Popcron.UnityLibrary.Editor")]
+[assembly: InternalsVisibleTo("UnityLibrary.Editor")]
 namespace UnityLibrary
 {
     /// <summary>
@@ -26,12 +24,14 @@ namespace UnityLibrary
     public static class UnityApplication
     {
         internal const string PlayFromStartKey = "playingFromStart";
+
 #if UNITY_EDITOR
-        private const string AllEditorSystemsTypeName = "UnityLibrary.AllEditorSystems, Popcron.UnityLibrary.Editor";
-        private static readonly Type? allEditorSystemsType = Type.GetType(AllEditorSystemsTypeName);
+        private const string UnityEditorApplication = "UnityLibrary.Editor.EditorSystems, UnityLibrary.Editor";
+        private static readonly Type? unityEditorType = Type.GetType(UnityEditorApplication);
 #endif
 
-        private static int id = GenerateID();
+        private static VirtualMachine? vm;
+        private static IProgram? program;
         private static bool started;
         private static bool stopped;
 
@@ -55,11 +55,22 @@ namespace UnityLibrary
         /// Singleton <see cref="VirtualMachine"/> instance that represents the <see cref="AppDomain"/> that was
         /// loaded by either the Unity editor, or the Unity player.
         /// </summary>
-        public static VirtualMachine VM => VirtualMachine.Get(id);
+        public static VirtualMachine VM
+        {
+            get
+            {
+                if (vm is null)
+                {
+                    throw new Exception("Unable to access virtual machine because of initialization errors");
+                }
+
+                return vm;
+            }
+        }
 
         static UnityApplication()
         {
-            Start();
+            (vm, program) = Start();
 #if UNITY_EDITOR
             AppDomain.CurrentDomain.DomainUnload += (sender, args) =>
             {
@@ -86,110 +97,107 @@ namespace UnityLibrary
         }
 #endif
 
-        private static void Start()
+        private static (VirtualMachine? vm, IProgram? program) Start()
         {
             if (started)
             {
-                throw new Exception("Was already asked to be started.");
+                throw new Exception("Was already asked to be started");
             }
 
             started = true;
 
-            VirtualMachine vm;
-            UnityApplicationSettings settings = UnityApplicationSettings.Singleton;
+            UnityApplicationSettings settings;
+            settings = UnityApplicationSettings.Singleton;
+
 #if UNITY_EDITOR
             //fail if state type is missing, this is needed
             if (settings.StateType is null)
             {
-                StringBuilder errorBuilder = new();
-                errorBuilder.Append("State type in unity application settings asset is not assigned to a found type. Available options are:\n");
-                foreach (Type type in TypeCache.GetTypesDerivedFrom<VirtualMachine.IState>())
+                List<Type> availableProgramTypes = new();
+                foreach (Type type in TypeCache.GetTypesDerivedFrom<IProgram>())
                 {
-                    if (!type.IsPublic) continue;
-
-                    errorBuilder.AppendLine(type.AssemblyQualifiedName);
+                    if (type.IsPublic)
+                    {
+                        availableProgramTypes.Add(type);
+                    }
                 }
 
-                Debug.LogError(errorBuilder.ToString(), settings);
-                vm = new(id, new FallbackFailureState(), settings);
-                return;
+                StringBuilder errorBuilder = new();
+                if (availableProgramTypes.Count > 0)
+                {
+                    errorBuilder.Append("Program type in unity application settings asset is not assigned to a found type. Available options are:\n");
+                    foreach (Type type in availableProgramTypes)
+                    {
+                        errorBuilder.Append(type.AssemblyQualifiedName);
+                        errorBuilder.Append('\n');
+                    }
+                }
+                else
+                {
+                    errorBuilder.Append("No types found that implement IProgram. Please create a class that implements IProgram and assign it to the unity application settings asset");
+                }
+
+                Exception exception = new(errorBuilder.ToString());
+                Debug.LogException(exception, settings);
+                return default;
             }
 
             //fail if initial data is missing
-            if (settings.InitialData == null)
+            IInitialData? initialData = settings.InitialData;
+            if (initialData is null)
             {
-                Debug.LogError("Initial data in unity application settings asset is not assigned.", settings);
-                vm = new(id, new FallbackFailureState(), settings);
-                return;
+                Debug.LogWarning("Initial data in unity application settings asset is not assigned", settings);
+                initialData = new EmptyInitialData();
             }
 
             //fail if editor systems cant be found, (extra for editor)
-            if (allEditorSystemsType is null)
+            if (unityEditorType is null)
             {
-                Debug.LogErrorFormat("Expected editor systems type {0} not found in this AppDomain.", AllEditorSystemsTypeName);
-                vm = new(id, new FallbackFailureState(), settings);
-                return;
+                Debug.LogError($"Expected editor systems type `{UnityEditorApplication}` not found");
+                return default;
             }
 #endif
 
-            VirtualMachine.IState state = (VirtualMachine.IState)Activator.CreateInstance(settings.StateType);
+            VirtualMachine vm = new(initialData);
 #if UNITY_EDITOR
-            vm = new(id, state, settings.InitialData, allEditorSystemsType);
-#else
-            vm = new(id, state, settings.InitialData);
+            unityEditorType.GetMethod("Start", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
 #endif
+            IProgram program = (IProgram)Activator.CreateInstance(settings.StateType);
+            program.Start(vm);
+            return (vm, program);
         }
 
         public static void Reinitialize()
         {
+            if (started && vm is null)
+            {
+                started = false;
+            }
+
             if (!stopped)
             {
                 Stop();
             }
 
-            id = GenerateID();
-            Start();
+            (vm, program) = Start();
         }
 
         private static void Stop()
         {
             if (stopped)
             {
-                throw new Exception("Was already asked to be stopped.");
+                throw new Exception("Was already asked to be stopped");
             }
 
             stopped = true;
-            VM.Dispose();
-
+            if (vm is not null)
+            {
+                program?.Finish(vm);
 #if UNITY_EDITOR
-            //remove the editor system that was injected in Start
-            if (allEditorSystemsType != null)
-            {
-                MethodInfo method = allEditorSystemsType.GetMethod("Dispose", BindingFlags.Public | BindingFlags.Instance);
-                object editorSystem = VM.GetSystem(allEditorSystemsType);
-                method.Invoke(editorSystem, null);
-            }
+                unityEditorType?.GetMethod("Stop", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
 #endif
-        }
-
-        private static int GenerateID()
-        {
-            return new Random().Next(int.MinValue, int.MaxValue);
-        }
-
-        /// <summary>
-        /// Fallback state to use if there are issues when initializing, and allows <see cref="VM"/> to never be null.
-        /// </summary>
-        private class FallbackFailureState : VirtualMachine.IState
-        {
-            void VirtualMachine.IState.Initialize(VirtualMachine vm)
-            {
-                vm.AddSystem<UnityLibrary.UnityLibrarySystems>();
-            }
-
-            void VirtualMachine.IState.Finalize(VirtualMachine vm)
-            {
-                vm.RemoveSystem<UnityLibrary.UnityLibrarySystems>().Dispose();
+                vm.Dispose();
+                program = null;
             }
         }
     }

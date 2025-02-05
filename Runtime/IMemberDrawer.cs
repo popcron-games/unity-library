@@ -2,7 +2,7 @@
 using System;
 using UnityEngine;
 
-namespace UnityLibrary.Unity
+namespace UnityLibrary.Drawers
 {
     /// <summary>
     /// Automatically created for drawing an inspector GUI for member values that aren't serialized by Unity.

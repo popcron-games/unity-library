@@ -1,12 +1,15 @@
 ﻿#nullable enable
-using Game;
-using Game.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Object = UnityEngine.Object;
+using UnityLibrary.Events;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace UnityLibrary
 {
@@ -20,7 +23,7 @@ namespace UnityLibrary
     /// <see cref="IListener{TestEvent}"/> anyway as its injected into the tested manually to avoid the circular reference issue.
     /// </remarks>
     [DefaultExecutionOrder(int.MinValue + 20)]
-    public sealed class UnityApplicationSettings : ScriptableObject, VirtualMachine.IInitialData, IListener<TestEvent>
+    public sealed class UnityApplicationSettings : ScriptableObject, IInitialData, IListener<Validate>
     {
         private static UnityApplicationSettings? singleton;
 
@@ -44,14 +47,13 @@ namespace UnityLibrary
 
                 return singleton;
             }
-            private set => singleton = value;
         }
 
         [SerializeField]
         private string? stateTypeName;
 
         [SerializeField]
-        private InitialAssets initialData;
+        private InitialAssets? initialData;
 
         /// <summary>
         /// The <see cref="VirtualMachine.IState"/> type to use when <see cref="UnityApplication"/> creates its virtual machine.
@@ -71,39 +73,35 @@ namespace UnityLibrary
 
         public InitialAssets? InitialData => initialData != null ? initialData : null;
 
-        void IListener<TestEvent>.Receive(VirtualMachine vm, ref TestEvent e)
+        void IListener<Validate>.Receive(VirtualMachine vm, ref Validate e)
         {
-            Assert.IsNotNull(StateType, "StateType is null, please set it in the unity application settings asset.");
-            Assert.IsNotNull(initialData, "InitialData is null, please set it in the unity application settings asset.");
+            Assert.IsNotNull(StateType, "StateType is null, please set it in the unity application settings asset");
         }
 
         private void OnEnable()
         {
-            Singleton = this;
+            singleton = this;
+#if UNITY_EDITOR
+            EditorPrefs.SetString(nameof(UnityApplicationSettings) + ".path", AssetDatabase.GetAssetPath(this));
+#endif
+        }
+
+        private void OnDisable()
+        {
+            singleton = null;
         }
 
         /// <summary>
         /// Iterates over all assets that are assignable to <typeparamref name="T"/>.
         /// </summary>
-        public IReadOnlyList<object> GetAllThatAre<T>()
+        public IReadOnlyList<T> GetAllThatAre<T>()
         {
+            if (initialData is null)
+            {
+                return Array.Empty<T>();
+            }
+
             return initialData.GetAllThatAre<T>();
-        }
-
-        /// <summary>
-        /// Adds the asset if not contained already.
-        /// </summary>
-        public bool TryAdd(Object asset)
-        {
-            return initialData.Add(asset);
-        }
-
-        /// <summary>
-        /// Removes a specific asset.
-        /// </summary>
-        public bool TryRemove(Object asset)
-        {
-            return initialData.Remove(asset);
         }
 
         public bool AssignStateType(Type type)
@@ -129,24 +127,24 @@ namespace UnityLibrary
 #if UNITY_EDITOR
         private static UnityApplicationSettings CreateInstance()
         {
-            string[] guids = UnityEditor.AssetDatabase.FindAssets($"t:{nameof(UnityApplicationSettings)}");
+            string[] guids = AssetDatabase.FindAssets($"t:{nameof(UnityApplicationSettings)}");
             UnityApplicationSettings? found = null;
             foreach (string guid in guids)
             {
-                string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-                UnityApplicationSettings asset = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityApplicationSettings>(assetPath);
+                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                UnityApplicationSettings asset = AssetDatabase.LoadAssetAtPath<UnityApplicationSettings>(assetPath);
                 if (found == null)
                 {
                     found = asset;
                 }
                 else
                 {
-                    Debug.LogWarningFormat(asset, "Duplicate unity application settings asset found at {0}, choosing first found {1}", UnityEditor.AssetDatabase.GetAssetPath(asset), found);
+                    Debug.LogWarningFormat(asset, "Duplicate unity application settings asset found at {0}, choosing first found {1}", AssetDatabase.GetAssetPath(asset), found);
                     break;
                 }
             }
 
-            List<Object> preloadedAssets = UnityEditor.PlayerSettings.GetPreloadedAssets().ToList();
+            List<Object> preloadedAssets = PlayerSettings.GetPreloadedAssets().ToList();
             foreach (Object obj in preloadedAssets)
             {
                 found = obj as UnityApplicationSettings;
@@ -159,17 +157,16 @@ namespace UnityLibrary
             if (found == null)
             {
                 found = CreateInstance<UnityApplicationSettings>();
-                found.stateTypeName = "Library.Unity.UnityApplication+DefaultState, Library.Runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null";
                 string path = "Assets/Settings.asset";
-                UnityEditor.AssetDatabase.CreateAsset(found, path);
-                UnityEditor.AssetDatabase.SaveAssets();
-                Debug.LogFormat("Created unity application settings asset at {1}", path);
+                AssetDatabase.CreateAsset(found, path);
+                AssetDatabase.SaveAssets();
+                Debug.LogFormat("Created unity application settings asset at {0}", path);
             }
 
             if (!preloadedAssets.Contains(found))
             {
                 preloadedAssets.Add(found);
-                UnityEditor.PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
+                PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
             }
 
             return found;

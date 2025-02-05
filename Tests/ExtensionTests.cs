@@ -1,5 +1,4 @@
 #nullable enable
-using Game;
 using NUnit.Framework;
 using System;
 
@@ -19,14 +18,14 @@ namespace UnityLibrary
         }
 
         [Test]
-        public void TestTelling()
+        public void SystemsReceiveToldEvent()
         {
-            using VirtualMachine vm = new(0, new TestState());
+            using VirtualMachine vm = new(new TestState());
             TestSystem system = new(Guid.NewGuid().ToString());
             vm.AddSystem(system);
 
             int value = DateTime.Now.Millisecond;
-            TestEvent ev = new(value);
+            DummyTestEvent ev = new(value);
             system.Tell(vm, ref ev);
 
             Assert.AreEqual(system.events.Count, 1);
@@ -34,9 +33,9 @@ namespace UnityLibrary
         }
 
         [Test]
-        public void TestRentedArray()
+        public void RentedArrayGetsReturnedToPool()
         {
-            using RentedBuffer<int> array = new(10, true);
+            using RentedArray<int> array = new(10, true);
             Assert.GreaterOrEqual(array.Length, 10);
             Assert.AreEqual(array[0], 0);
             Assert.AreEqual(array[9], 0);
@@ -45,6 +44,12 @@ namespace UnityLibrary
             array[9] = 2;
             Assert.AreEqual(array[0], 1);
             Assert.AreEqual(array[9], 2);
+
+            RentedArray<int> array2 = new(10, true);
+            Assert.AreEqual(array2[0], 0);
+            Assert.AreEqual(array2[9], 0);
+
+            array2.Dispose();
         }
     }
 }

@@ -1,31 +1,30 @@
 ﻿#nullable enable
 using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 public static class Djb2HashCodeExtension
 {
     public unsafe static int GetDjb2HashCode(this string str)
     {
-        int length = str.Length;
         fixed (char* source = str)
         {
-            return GetDjb2HashCode<char>(source, length);
+            return GetDjb2HashCode<char>(source, str.Length);
         }
     }
 
     public unsafe static int GetDjb2HashCode<T>(this ReadOnlySpan<T> span) where T : unmanaged
     {
-        int length = span.Length;
-        void* source = Unsafe.AsPointer(ref MemoryMarshal.GetReference(span));
-        return GetDjb2HashCode<T>(source, length);
+        fixed (T* source = span)
+        {
+            return GetDjb2HashCode<T>(source, span.Length);
+        }
     }
 
     public unsafe static int GetDjb2HashCode<T>(this Span<T> span) where T : unmanaged
     {
-        int length = span.Length;
-        void* source = Unsafe.AsPointer(ref MemoryMarshal.GetReference(span));
-        return GetDjb2HashCode<T>(source, length);
+        fixed (T* source = span)
+        {
+            return GetDjb2HashCode<T>(source, span.Length);
+        }
     }
 
     private unsafe static int GetDjb2HashCode<T>(void* source, int length) where T : unmanaged
@@ -75,8 +74,8 @@ public static class Djb2HashCodeExtension
         return hash;
     }
 
-    private unsafe static T ReadArrayElement<T>(void* source, int index)
+    private unsafe static T ReadArrayElement<T>(void* source, int index) where T : unmanaged
     {
-        return Unsafe.Read<T>((byte*)source + (long)index * (long)Unsafe.SizeOf<T>());
+        return *(T*)((byte*)source + index * sizeof(T));
     }
 }
