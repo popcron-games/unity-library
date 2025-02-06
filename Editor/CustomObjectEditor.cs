@@ -340,17 +340,18 @@ namespace UnityLibrary.Editor
                     EditorGUILayout.LabelField(label, GUILayout.Width(50));
                     int size = EditorGUILayout.IntField(array.Length);
                     EditorGUILayout.EndHorizontal();
+                    Type elementType = type.GetElementType();
                     if (size != array.Length)
                     {
                         if (size > array.Length)
                         {
-                            Array newArray = Array.CreateInstance(type.GetElementType()!, size);
+                            Array newArray = Array.CreateInstance(elementType, size);
                             Array.Copy(array, newArray, array.Length);
                             array = newArray;
                         }
                         else
                         {
-                            Array newArray = Array.CreateInstance(type.GetElementType()!, size);
+                            Array newArray = Array.CreateInstance(elementType, size);
                             Array.Copy(array, newArray, size);
                             array = newArray;
                         }
@@ -361,7 +362,7 @@ namespace UnityLibrary.Editor
                     {
                         object? element = array.GetValue(i);
                         GUIContent elementContent = new($"Element {i}");
-                        element = ManuallyDraw(elementContent, element.GetType(), element);
+                        element = ManuallyDraw(elementContent, elementType, element);
                         array.SetValue(element, i);
                     }
 
@@ -387,6 +388,7 @@ namespace UnityLibrary.Editor
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField(label, GUILayout.Width(50));
                 int size = EditorGUILayout.IntField(list.Count);
+                Type elementType = type.GetGenericArguments()[0];
                 EditorGUILayout.EndHorizontal();
                 if (size != list.Count)
                 {
@@ -411,7 +413,7 @@ namespace UnityLibrary.Editor
                 {
                     object? element = list[i];
                     GUIContent elementContent = new($"Element {i}");
-                    list[i] = ManuallyDraw(elementContent, element.GetType(), element);
+                    list[i] = ManuallyDraw(elementContent, elementType, element);
                 }
 
                 EditorGUI.indentLevel--;
