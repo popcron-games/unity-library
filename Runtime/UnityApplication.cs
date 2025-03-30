@@ -134,7 +134,7 @@ namespace UnityLibrary
                 }
                 else
                 {
-                    errorBuilder.Append("No types found that implement IProgram. Please create a class that implements IProgram and assign it to the unity application settings asset");
+                    errorBuilder.Append($"No types found that implement {nameof(IProgram)}. Please create a struct type that implements it, and assign it to the unity application settings asset");
                 }
 
                 Exception exception = new(errorBuilder.ToString());

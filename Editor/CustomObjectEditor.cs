@@ -84,6 +84,7 @@ namespace UnityLibrary.Editor
             EditorGUI.EndDisabledGroup();
 
             //show fields
+            EditorGUI.BeginChangeCheck();
             foreach (FieldInfo field in Fields)
             {
                 DrawMember(field);
@@ -122,6 +123,12 @@ namespace UnityLibrary.Editor
 
                     DrawMember(property);
                 }
+            }
+
+            bool changed = EditorGUI.EndChangeCheck();
+            if (changed)
+            {
+                EditorUtility.SetDirty(serializedObject.targetObject);
             }
 
             serializedObject.ApplyModifiedProperties();
@@ -325,58 +332,12 @@ namespace UnityLibrary.Editor
                     throw ex;
                 }
             }
-            else if (type.IsArray)
-            {
-                Array? array = value as Array;
-                if (array is null)
-                {
-                    EditorGUILayout.LabelField("null");
-                    return null;
-                }
-                else
-                {
-                    EditorGUILayout.BeginVertical();
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField(label, GUILayout.Width(50));
-                    int size = EditorGUILayout.IntField(array.Length);
-                    EditorGUILayout.EndHorizontal();
-                    Type elementType = type.GetElementType();
-                    if (size != array.Length)
-                    {
-                        if (size > array.Length)
-                        {
-                            Array newArray = Array.CreateInstance(elementType, size);
-                            Array.Copy(array, newArray, array.Length);
-                            array = newArray;
-                        }
-                        else
-                        {
-                            Array newArray = Array.CreateInstance(elementType, size);
-                            Array.Copy(array, newArray, size);
-                            array = newArray;
-                        }
-                    }
-
-                    EditorGUI.indentLevel++;
-                    for (int i = 0; i < array.Length; i++)
-                    {
-                        object? element = array.GetValue(i);
-                        GUIContent elementContent = new($"Element {i}");
-                        element = ManuallyDraw(elementContent, elementType, element);
-                        array.SetValue(element, i);
-                    }
-
-                    EditorGUI.indentLevel--;
-                    EditorGUILayout.EndVertical();
-                    return array;
-                }
-            }
-            else if (typeof(IList).IsAssignableFrom(type))
+            if (typeof(IList).IsAssignableFrom(type))
             {
                 IList list;
                 if (value is null)
                 {
-                    EditorGUILayout.LabelField("null");
+                    EditorGUILayout.LabelField(label, "null");
                     return null;
                 }
                 else
@@ -384,26 +345,73 @@ namespace UnityLibrary.Editor
                     list = (IList)value;
                 }
 
+                Array? array = list as Array;
                 EditorGUILayout.BeginVertical();
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField(label, GUILayout.Width(50));
-                int size = EditorGUILayout.IntField(list.Count);
-                Type elementType = type.GetGenericArguments()[0];
-                EditorGUILayout.EndHorizontal();
-                if (size != list.Count)
+                //EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(label, GUILayout.Width(Screen.width - 90));
+                int newLength = EditorGUILayout.IntField("Length", list.Count);
+                if (newLength < 0)
                 {
-                    if (size > list.Count)
+                    newLength = 0;
+                }
+
+                Type elementType;
+                if (array is not null)
+                {
+                    elementType = type.GetElementType();
+                }
+                else
+                {
+                    elementType = type.GetGenericArguments()[0];
+                }
+
+                //EditorGUILayout.EndHorizontal();
+                if (newLength != list.Count)
+                {
+                    //handle resizing for arrays and lists
+                    if (array is not null)
                     {
-                        while (list.Count < size)
+                        Array newArray = Array.CreateInstance(elementType, newLength);
+                        int count = Math.Min(newLength, list.Count);
+                        for (int i = 0; i < count; i++)
                         {
-                            list.Add(null);
+                            newArray.SetValue(list[i], i);
                         }
+
+                        //assign new values to defaults
+                        if (elementType.IsValueType)
+                        {
+                            object defaultValue = Activator.CreateInstance(elementType);
+                            for (int i = count; i < newLength; i++)
+                            {
+                                newArray.SetValue(defaultValue, i);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = count; i < newLength; i++)
+                            {
+                                newArray.SetValue(null, i);
+                            }
+                        }
+
+                        list = newArray;
                     }
                     else
                     {
-                        while (list.Count > size)
+                        if (newLength > list.Count)
                         {
-                            list.RemoveAt(list.Count - 1);
+                            while (list.Count < newLength)
+                            {
+                                list.Add(null);
+                            }
+                        }
+                        else
+                        {
+                            while (list.Count > newLength)
+                            {
+                                list.RemoveAt(list.Count - 1);
+                            }
                         }
                     }
                 }

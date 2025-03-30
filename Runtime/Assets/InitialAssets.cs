@@ -10,7 +10,7 @@ namespace UnityLibrary
     public sealed class InitialAssets : CustomScriptableObject, IListener<Validate>, IInitialData
     {
         [SerializeField]
-        private List<Object> assets = new();
+        private Object[] assets = { };
 
         public IReadOnlyList<T> GetAllThatAre<T>()
         {
@@ -26,29 +26,9 @@ namespace UnityLibrary
             return throwawayList;
         }
 
-        public bool TryAdd(Object asset)
-        {
-            if (!assets.Contains(asset))
-            {
-                assets.Add(asset);
-                return true;
-            }
-            else return false;
-        }
-
-        public bool TryRemove(Object asset)
-        {
-            if (assets.Contains(asset))
-            {
-                assets.Remove(asset);
-                return true;
-            }
-            else return false;
-        }
-
         void IListener<Validate>.Receive(VirtualMachine vm, ref Validate ev)
         {
-            for (int i = 0; i < assets.Count; i++)
+            for (int i = 0; i < assets.Length; i++)
             {
                 Object asset = assets[i];
                 Assert.IsNotNull(asset, $"Asset is null at index {i} on {this}");
