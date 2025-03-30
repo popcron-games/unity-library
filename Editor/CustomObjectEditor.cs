@@ -292,21 +292,6 @@ namespace UnityLibrary.Editor
             return builder.ToString();
         }
 
-        private static (FieldInfo field, object targetObject) GetMember(SerializedProperty property)
-        {
-            string path = property.propertyPath;
-            object targetObject = property.serializedObject.targetObject;
-            Type targetType = targetObject.GetType();
-            if (targetType.GetField(path, MemberFlags) is FieldInfo field)
-            {
-                return (field, targetObject);
-            }
-            else
-            {
-                throw new NotImplementedException($"Member {path} not found in {targetType}");
-            }
-        }
-
         private static object? ManuallyDraw(GUIContent label, Type type, object? value)
         {
             if (container == null)
@@ -349,6 +334,7 @@ namespace UnityLibrary.Editor
                 EditorGUILayout.BeginVertical();
                 //EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField(label, GUILayout.Width(Screen.width - 90));
+                EditorGUI.indentLevel++;
                 int newLength = EditorGUILayout.IntField("Length", list.Count);
                 if (newLength < 0)
                 {
@@ -416,7 +402,6 @@ namespace UnityLibrary.Editor
                     }
                 }
 
-                EditorGUI.indentLevel++;
                 for (int i = 0; i < list.Count; i++)
                 {
                     object? element = list[i];

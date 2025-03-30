@@ -62,10 +62,10 @@ namespace UnityLibrary.Systems
                 UnityEngine.Object.DestroyImmediate(guiObject);
             };
 
-            lastUpdateTime = Time.realtimeSinceStartupAsDouble;
+            lastUpdateTime = Time.timeAsDouble;
             lastFixedUpdateTime = Time.fixedTimeAsDouble;
-            lastPreUpdateTime = Time.realtimeSinceStartupAsDouble;
-            lastPostUpdateTime = Time.realtimeSinceStartupAsDouble;
+            lastPreUpdateTime = Time.timeAsDouble;
+            lastPostUpdateTime = Time.timeAsDouble;
         }
 
         public void Dispose()
@@ -102,7 +102,7 @@ namespace UnityLibrary.Systems
 
         private void Update()
         {
-            double timeNow = Time.realtimeSinceStartupAsDouble;
+            double timeNow = Time.timeAsDouble;
             double delta = timeNow - lastUpdateTime;
             lastUpdateTime = timeNow;
             vm.Broadcast(new UpdateEvent(delta));
@@ -118,15 +118,15 @@ namespace UnityLibrary.Systems
 
         private void PreUpdate()
         {
-            double timeNow = Time.realtimeSinceStartupAsDouble;
+            double timeNow = Time.timeAsDouble;
             double delta = timeNow - lastPreUpdateTime;
             lastPreUpdateTime = timeNow;
-            vm.Broadcast(new PreUpdateEvent(Time.deltaTime));
+            vm.Broadcast(new PreUpdateEvent(delta));
         }
 
         private void PostLateUpdateEvent()
         {
-            double timeNow = Time.realtimeSinceStartupAsDouble;
+            double timeNow = Time.timeAsDouble;
             double delta = timeNow - lastPostUpdateTime;
             lastPostUpdateTime = timeNow;
             vm.Broadcast(new LateUpdateEvent(delta));

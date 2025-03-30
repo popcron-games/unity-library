@@ -8,11 +8,9 @@ namespace UnityLibrary.Unity
 {
     public class UnityApplicationEditorWindow : EditorWindow
     {
-        public const string Title = "Unity Application";
+        private const string Title = "Unity Application";
 
         private bool showSystems;
-        private bool changeType;
-        private bool changeInitialData;
         private Vector2 scrollPosition;
 
         private void OnGUI()
@@ -21,10 +19,13 @@ namespace UnityLibrary.Unity
             GUI.enabled = false;
             EditorGUILayout.ObjectField("Settings", settings, typeof(UnityApplicationSettings), false);
             GUI.enabled = true;
-            if (settings.StateType is null)
+
+            //show error if program type isnt set
+            Type? programType = settings.ProgramType;
+            if (programType is null)
             {
-                EditorGUILayout.HelpBox("No state type was set in the settings.", MessageType.Error);
-                if (GUILayout.Button("Select root settings asset"))
+                EditorGUILayout.HelpBox("No program type is set in the settings", MessageType.Error);
+                if (GUILayout.Button("Select settings asset"))
                 {
                     Selection.activeObject = settings;
                     EditorGUIUtility.PingObject(settings);
@@ -33,72 +34,14 @@ namespace UnityLibrary.Unity
                 return;
             }
 
-            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-            EditorGUILayout.LabelField("State Type", settings.StateType.Name);
-            changeType = EditorGUILayout.BeginFoldoutHeaderGroup(changeType, "Change State Type");
-            if (changeType)
-            {
-                EditorGUI.indentLevel++;
-                TypeCache.TypeCollection stateTypes = TypeCache.GetTypesDerivedFrom<IProgram>();
-                foreach (Type type in stateTypes)
-                {
-                    if (!type.IsPublic) continue;
-
-                    string assemblyName = type.Assembly.GetName().Name;
-                    if (GUILayout.Button($"{type.FullName} from {assemblyName}"))
-                    {
-                        if (settings.AssignStateType(type))
-                        {
-                            EditorUtility.SetDirty(settings);
-                            AssetDatabase.SaveAssetIfDirty(settings);
-                            UnityApplication.Reinitialize();
-                        }
-
-                        break;
-                    }
-                }
-
-                EditorGUI.indentLevel--;
-            }
-
-            EditorGUILayout.EndFoldoutHeaderGroup();
-
+            //show error if initial data is missing
             if (settings.InitialData == null)
             {
-                EditorGUILayout.HelpBox("No initial data was set in the settings.", MessageType.Error);
+                EditorGUILayout.HelpBox("No initial data was set in the settings", MessageType.Error);
                 return;
             }
 
-            GUI.enabled = false;
-            EditorGUILayout.ObjectField("Initial Data", settings.InitialData, settings.InitialData.GetType(), false);
-            GUI.enabled = true;
-            changeInitialData = EditorGUILayout.BeginFoldoutHeaderGroup(changeInitialData, "Change Initial Data");
-            if (changeInitialData)
-            {
-                EditorGUI.indentLevel++;
-                string[] guids = AssetDatabase.FindAssets($"t:{typeof(InitialAssets).FullName}");
-                foreach (var guid in guids)
-                {
-                    string path = AssetDatabase.GUIDToAssetPath(guid);
-                    InitialAssets initialAssets = AssetDatabase.LoadAssetAtPath<InitialAssets>(path);
-                    if (GUILayout.Button(initialAssets.name))
-                    {
-                        if (settings.AssignInitialData(initialAssets))
-                        {
-                            EditorUtility.SetDirty(settings);
-                            AssetDatabase.SaveAssetIfDirty(settings);
-                            UnityApplication.Reinitialize();
-                        }
-
-                        break;
-                    }
-                }
-
-                EditorGUI.indentLevel--;
-            }
-
-            EditorGUILayout.EndFoldoutHeaderGroup();
-
+            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
             showSystems = EditorGUILayout.BeginFoldoutHeaderGroup(showSystems, "Systems");
             if (showSystems)
             {
@@ -111,6 +54,7 @@ namespace UnityLibrary.Unity
                     }
                     else
                     {
+                        //todo: for non object systems, show the text asset that declares the system type
                         EditorGUILayout.LabelField(system.ToString());
                     }
                 }

@@ -111,7 +111,7 @@ namespace UnityLibrary
 
 #if UNITY_EDITOR
             //fail if state type is missing, this is needed
-            if (settings.StateType is null)
+            if (settings.ProgramType is null)
             {
                 List<Type> availableProgramTypes = new();
                 foreach (Type type in TypeCache.GetTypesDerivedFrom<IProgram>())
@@ -162,7 +162,7 @@ namespace UnityLibrary
 #if UNITY_EDITOR
             unityEditorType.GetMethod("Start", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
 #endif
-            IProgram program = (IProgram)Activator.CreateInstance(settings.StateType);
+            IProgram program = (IProgram)Activator.CreateInstance(settings.ProgramType);
             program.Start(vm);
             return (vm, program);
         }

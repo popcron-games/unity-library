@@ -50,24 +50,24 @@ namespace UnityLibrary
         }
 
         [SerializeField]
-        private string? stateTypeName;
+        private string? programTypeName;
 
         [SerializeField]
         private InitialAssets? initialData;
 
         /// <summary>
-        /// The <see cref="VirtualMachine.IState"/> type to use when <see cref="UnityApplication"/> creates its virtual machine.
+        /// The <see cref="IProgram"/> type to use when <see cref="UnityApplication"/> creates its virtual machine.
         /// </summary>
-        public Type? StateType
+        public Type? ProgramType
         {
             get
             {
-                if (string.IsNullOrEmpty(stateTypeName))
+                if (string.IsNullOrEmpty(programTypeName))
                 {
                     return null;
                 }
 
-                return Type.GetType(stateTypeName);
+                return Type.GetType(programTypeName);
             }
         }
 
@@ -75,7 +75,7 @@ namespace UnityLibrary
 
         void IListener<Validate>.Receive(VirtualMachine vm, ref Validate e)
         {
-            Assert.IsNotNull(StateType, "StateType is null, please set it in the unity application settings asset");
+            Assert.IsNotNull(ProgramType, $"{nameof(programTypeName)} is null, please set it in the unity application settings asset");
         }
 
         private void OnEnable()
@@ -104,17 +104,17 @@ namespace UnityLibrary
             return initialData.GetAllThatAre<T>();
         }
 
-        public bool AssignStateType(Type type)
+        public bool TryAssignProgramType(Type newProgramType)
         {
-            if (stateTypeName != type.AssemblyQualifiedName)
+            if (programTypeName != newProgramType.AssemblyQualifiedName)
             {
-                stateTypeName = type.AssemblyQualifiedName;
+                programTypeName = newProgramType.AssemblyQualifiedName;
                 return true;
             }
             else return false;
         }
 
-        public bool AssignInitialData(InitialAssets assets)
+        public bool TryAssignInitialData(InitialAssets assets)
         {
             if (initialData != assets)
             {
