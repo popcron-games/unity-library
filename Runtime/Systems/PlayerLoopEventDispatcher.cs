@@ -19,6 +19,10 @@ namespace UnityLibrary.Systems
         private static UnityEventDispatcher? instance;
         private static GameObject? guiObject;
 
+        private double lastUpdateTime;
+        private double lastFixedUpdateTime;
+        private double lastPreUpdateTime;
+        private double lastPostUpdateTime;
         private readonly VirtualMachine vm;
         private readonly HashSet<HashSet<Action>> callbacks = new();
 
@@ -57,6 +61,11 @@ namespace UnityLibrary.Systems
                 vm.Broadcast(new ApplicationStopped());
                 UnityEngine.Object.DestroyImmediate(guiObject);
             };
+
+            lastUpdateTime = Time.realtimeSinceStartupAsDouble;
+            lastFixedUpdateTime = Time.fixedTimeAsDouble;
+            lastPreUpdateTime = Time.realtimeSinceStartupAsDouble;
+            lastPostUpdateTime = Time.realtimeSinceStartupAsDouble;
         }
 
         public void Dispose()
@@ -93,22 +102,34 @@ namespace UnityLibrary.Systems
 
         private void Update()
         {
-            vm.Broadcast(new UpdateEvent(Time.deltaTime));
+            double timeNow = Time.realtimeSinceStartupAsDouble;
+            double delta = timeNow - lastUpdateTime;
+            lastUpdateTime = timeNow;
+            vm.Broadcast(new UpdateEvent(delta));
         }
 
         private void FixedUpdate()
         {
-            vm.Broadcast(new FixedUpdateEvent(Time.fixedDeltaTime));
+            double timeNow = Time.fixedTimeAsDouble;
+            double delta = timeNow - lastFixedUpdateTime;
+            lastFixedUpdateTime = timeNow;
+            vm.Broadcast(new FixedUpdateEvent(delta));
         }
 
         private void PreUpdate()
         {
+            double timeNow = Time.realtimeSinceStartupAsDouble;
+            double delta = timeNow - lastPreUpdateTime;
+            lastPreUpdateTime = timeNow;
             vm.Broadcast(new PreUpdateEvent(Time.deltaTime));
         }
 
         private void PostLateUpdateEvent()
         {
-            vm.Broadcast(new LateUpdateEvent(Time.deltaTime));
+            double timeNow = Time.realtimeSinceStartupAsDouble;
+            double delta = timeNow - lastPostUpdateTime;
+            lastPostUpdateTime = timeNow;
+            vm.Broadcast(new LateUpdateEvent(delta));
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
