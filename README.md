@@ -2,17 +2,21 @@
 
 A framework for Unity.
 
-```csharp
+### Programs and systems
+
+Programs are surface level objects that are operated by a virtual machine.
+They, along with systems are able to receive events using the `IListener<T>` interface:
+```cs
 [Preserve]
 public class MyUnityGame : IProgram
 {
-    void IState.Start(VirtualMachine vm)
+    void IProgram.Start(VirtualMachine vm)
     {
         vm.AddSystem(new UnityLibrarySystems(vm));
         vm.AddSystem(new MySystem(vm));
     }
 
-    void IState.Stop(VirtualMachine vm)
+    void IProgram.Stop(VirtualMachine vm)
     {
         vm.RemoveSystem<MySystem>().Dispose();
         vm.RemoveSystem<UnityLibrarySystems>().Dispose();
@@ -46,10 +50,16 @@ public class MySystem : IDisposable, IListener<ApplicationStarted>, IListener<Ap
 }
 ```
 
+### Initialization data
+
+When virtual machines are created, they contain initial data which can then be accessed by
+a program or a system. This initial data is assigned in the inspector:
+
 ### How
 
-Most of the logic for enabling this is implemented in `UnityApplication`, which will initialize a `VirtualMachine` instance,
-and dispose of it at the latest possible moment in Unity. This virtual machine object is also accessible through `UnityApplication.VM`.
+The logic for bootstrapping this is implemented in the `UnityApplication` class. It will initialize a
+singleton `VirtualMachine` instance, and dispose of it at the latest possible moment in Unity.
+It's accessible through `UnityApplication.VM`.
 
 ### Unity events
 
