@@ -2,10 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-
-#if UNITY_EDITOR
 using UnityEditor;
-#endif
 
 namespace UnityLibrary.Drawers
 {
@@ -33,7 +30,6 @@ namespace UnityLibrary.Drawers
             return false;
         }
 
-#if UNITY_EDITOR
         private static void GetMemberDrawerTypes()
         {
             foreach (Type drawerType in TypeCache.GetTypesDerivedFrom<IMemberDrawer>())
@@ -46,10 +42,5 @@ namespace UnityLibrary.Drawers
                 drawers.Add(drawer);
             }
         }
-#else
-        private static void GetMemberDrawerTypes()
-        {
-        }
-#endif
     }
 }

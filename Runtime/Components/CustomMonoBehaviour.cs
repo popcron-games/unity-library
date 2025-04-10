@@ -7,8 +7,7 @@ using UnityLibrary.Systems;
 
 public abstract class CustomMonoBehaviour : MonoBehaviour
 {
-    protected static VirtualMachine VM => UnityApplication.VM;
-    protected static UnityObjects UnityObjects => VM.GetSystem<UnityObjects>();
+    protected static UnityObjects UnityObjects => UnityApplication.VM.GetSystem<UnityObjects>();
 
     private CancellationTokenSource? enabledLifetime = null;
 

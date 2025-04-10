@@ -19,24 +19,36 @@ namespace UnityLibrary.Editor
         private static Container? container;
         private static SerializedObject? containerObject;
 
-        private readonly List<FieldInfo> fields = new();
-        private readonly List<PropertyInfo> properties = new();
+        private readonly List<(FieldInfo, SerializedProperty?)> fields = new();
+        private readonly List<(PropertyInfo, SerializedProperty?)> properties = new();
         private readonly List<MethodInfo> methods = new();
 
-        public IReadOnlyList<FieldInfo> Fields => fields;
-        public IReadOnlyList<PropertyInfo> Properties => properties;
+        public IReadOnlyList<(FieldInfo field, SerializedProperty? serializedProperty)> Fields => fields;
+        public IReadOnlyList<(PropertyInfo property, SerializedProperty? serializedProperty)> Properties => properties;
         public IReadOnlyList<MethodInfo> Methods => methods;
 
         protected virtual void OnEnable()
         {
-            fields.AddRange(target.GetType().GetFields(MemberFlags));
-            properties.AddRange(target.GetType().GetProperties(MemberFlags));
+            FieldInfo[] foundFields = target.GetType().GetFields(MemberFlags);
+            foreach (FieldInfo field in foundFields)
+            {
+                SerializedProperty? serializedProperty = serializedObject.FindProperty(field.Name);
+                fields.Add((field, serializedProperty));
+            }
+
+            PropertyInfo[] foundProperties = target.GetType().GetProperties(MemberFlags);
+            foreach (PropertyInfo property in foundProperties)
+            {
+                SerializedProperty? serializedProperty = serializedObject.FindProperty(property.Name);
+                properties.Add((property, serializedProperty));
+            }
+
             methods.AddRange(target.GetType().GetMethods(MemberFlags));
 
             //remove members with HideInInspector attribute
             for (int i = fields.Count - 1; i >= 0; i--)
             {
-                if (ShouldIgnoreMember(fields[i]))
+                if (ShouldIgnoreMember(foundFields[i]))
                 {
                     fields.RemoveAt(i);
                 }
@@ -44,7 +56,7 @@ namespace UnityLibrary.Editor
 
             for (int i = properties.Count - 1; i >= 0; i--)
             {
-                if (ShouldIgnoreMember(properties[i]))
+                if (ShouldIgnoreMember(foundProperties[i]))
                 {
                     properties.RemoveAt(i);
                 }
@@ -85,15 +97,18 @@ namespace UnityLibrary.Editor
 
             //show fields
             EditorGUI.BeginChangeCheck();
-            foreach (FieldInfo field in Fields)
+            foreach ((FieldInfo field, SerializedProperty? serializedProperty) in Fields)
             {
-                DrawMember(field);
+                if (!TryDrawMember(field) && serializedProperty is not null)
+                {
+                    EditorGUILayout.PropertyField(serializedProperty, new GUIContent(serializedProperty.displayName), true);
+                }
             }
 
             //show properties
             if (Properties.Count > 0)
             {
-                foreach (PropertyInfo property in Properties)
+                foreach ((PropertyInfo property, SerializedProperty? serializedProperty) in Properties)
                 {
                     try
                     {
@@ -101,7 +116,7 @@ namespace UnityLibrary.Editor
 
                         //skip properties that have the same value as a field (likely backing field)
                         object? value = property.GetValue(target);
-                        foreach (FieldInfo field in Fields)
+                        foreach ((FieldInfo field, _) in Fields)
                         {
                             object? fieldValue = field.GetValue(target);
                             if (value == fieldValue)
@@ -121,7 +136,10 @@ namespace UnityLibrary.Editor
                         //unfair to throw exceptions here (not the components fault)
                     }
 
-                    DrawMember(property);
+                    if (!TryDrawMember(property) && serializedProperty is not null)
+                    {
+                        EditorGUILayout.PropertyField(serializedProperty, new GUIContent(serializedProperty.displayName), true);
+                    }
                 }
             }
 
@@ -134,7 +152,7 @@ namespace UnityLibrary.Editor
             serializedObject.ApplyModifiedProperties();
         }
 
-        public void DrawMember(MemberInfo member)
+        public bool TryDrawMember(MemberInfo member)
         {
             bool readOnly = false;
             object? memberValue;
@@ -150,7 +168,7 @@ namespace UnityLibrary.Editor
                 bool serialized = field.GetCustomAttribute<SerializeField>() is not null;
                 if (!serialized && !EditorApplication.isPlaying && !field.IsPublic)
                 {
-                    return;
+                    return true;
                 }
 
                 readOnly = !serialized;
@@ -170,7 +188,7 @@ namespace UnityLibrary.Editor
                 //dont show properties when in edit mode
                 if (!EditorApplication.isPlaying)
                 {
-                    return;
+                    return true;
                 }
 
                 readOnly = !property.CanWrite;
@@ -191,22 +209,29 @@ namespace UnityLibrary.Editor
             }
             else
             {
-                memberValue = ManuallyDraw(label, memberType, memberValue);
-
-                if (field is not null)
+                if (TryManuallyDraw(label, memberType, ref memberValue))
                 {
-                    field.SetValue(target, memberValue);
-                }
-                else if (property is not null)
-                {
-                    if (property.CanWrite)
+                    if (field is not null)
                     {
-                        property.SetValue(target, memberValue);
+                        field.SetValue(target, memberValue);
                     }
+                    else if (property is not null)
+                    {
+                        if (property.CanWrite)
+                        {
+                            property.SetValue(target, memberValue);
+                        }
+                    }
+                }
+                else
+                {
+                    GUI.enabled = true;
+                    return false;
                 }
             }
 
             GUI.enabled = true;
+            return true;
         }
 
         private static bool ShouldIgnoreMember(MemberInfo member)
@@ -292,7 +317,7 @@ namespace UnityLibrary.Editor
             return builder.ToString();
         }
 
-        private static object? ManuallyDraw(GUIContent label, Type type, object? value)
+        private static bool TryManuallyDraw(GUIContent label, Type type, ref object? value)
         {
             if (container == null)
             {
@@ -310,20 +335,22 @@ namespace UnityLibrary.Editor
                 Rect position = EditorGUILayout.GetControlRect(false, height);
                 try
                 {
-                    return drawer.OnGUI(position, value, label);
+                    value = drawer.OnGUI(position, value, label);
+                    return true;
                 }
                 catch (Exception ex)
                 {
                     throw ex;
                 }
             }
+
             if (typeof(IList).IsAssignableFrom(type))
             {
                 IList list;
                 if (value is null)
                 {
                     EditorGUILayout.LabelField(label, "null");
-                    return null;
+                    return true;
                 }
                 else
                 {
@@ -406,12 +433,14 @@ namespace UnityLibrary.Editor
                 {
                     object? element = list[i];
                     GUIContent elementContent = new($"Element {i}");
-                    list[i] = ManuallyDraw(elementContent, elementType, element);
+                    TryManuallyDraw(elementContent, elementType, ref element);
+                    list[i] = element;
                 }
 
                 EditorGUI.indentLevel--;
                 EditorGUILayout.EndVertical();
-                return list;
+                value = list;
+                return true;
             }
             else if (value is UnityEventBase unityEventBase)
             {
@@ -419,11 +448,12 @@ namespace UnityLibrary.Editor
                 //SerializedProperty property = containerObject.FindProperty("unityEventValue");
                 //EditorGUILayout.PropertyField(property);
                 //return container.unityEventValue;
-                return unityEventBase;
+                return false;
             }
             else if (value is Enum enumValue)
             {
-                return EditorGUILayout.EnumPopup(label, enumValue);
+                value = EditorGUILayout.EnumPopup(label, enumValue);
+                return true;
             }
             else if (value is bool boolValue)
             {
@@ -432,7 +462,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("boolValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.boolValue;
+                value = container.boolValue;
+                return true;
             }
             else if (value is int intValue)
             {
@@ -441,7 +472,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("intValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.intValue;
+                value = container.intValue;
+                return true;
             }
             else if (value is long longValue)
             {
@@ -450,7 +482,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("longValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.longValue;
+                value = container.longValue;
+                return true;
             }
             else if (value is float floatValue)
             {
@@ -459,7 +492,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("floatValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.floatValue;
+                value = container.floatValue;
+                return true;
             }
             else if (value is double doubleValue)
             {
@@ -468,7 +502,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("doubleValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.doubleValue;
+                value = container.doubleValue;
+                return true;
             }
             else if (type == typeof(string))
             {
@@ -477,7 +512,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("stringValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.stringValue;
+                value = container.stringValue;
+                return true;
             }
             else if (value is Vector2 vector2Value)
             {
@@ -486,7 +522,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("vector2Value");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.vector2Value;
+                value = container.vector2Value;
+                return true;
             }
             else if (value is Vector3 vector3Value)
             {
@@ -495,7 +532,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("vector3Value");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.vector3Value;
+                value = container.vector3Value;
+                return true;
             }
             else if (value is Vector4 vector4Value)
             {
@@ -504,7 +542,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("vector4Value");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.vector4Value;
+                value = container.vector4Value;
+                return true;
             }
             else if (value is Quaternion quaternionValue)
             {
@@ -513,7 +552,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("quaternionValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.quaternionValue;
+                value = container.quaternionValue;
+                return true;
             }
             else if (value is Color colorValue)
             {
@@ -522,7 +562,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("colorValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.colorValue;
+                value = container.colorValue;
+                return true;
             }
             else if (value is Rect rectValue)
             {
@@ -531,7 +572,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("rectValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.rectValue;
+                value = container.rectValue;
+                return true;
             }
             else if (value is Bounds boundsValue)
             {
@@ -540,7 +582,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("boundsValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.boundsValue;
+                value = container.boundsValue;
+                return true;
             }
             else if (type == typeof(AnimationCurve))
             {
@@ -549,7 +592,8 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("animationCurveValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.animationCurveValue;
+                value = container.animationCurveValue;
+                return true;
             }
             else if (type == typeof(Gradient))
             {
@@ -558,19 +602,18 @@ namespace UnityLibrary.Editor
                 SerializedProperty property = containerObject.FindProperty("gradientValue");
                 EditorGUILayout.PropertyField(property, label);
                 containerObject.ApplyModifiedProperties();
-                return container.gradientValue;
+                value = container.gradientValue;
+                return true;
             }
             else if (typeof(Object).IsAssignableFrom(type))
             {
-                return EditorGUILayout.ObjectField(label, value as Object, type, true);
+                //todo: check if this field/property is not meant to be null, and if it is, highlight it red
+                value = EditorGUILayout.ObjectField(label, value as Object, type, true);
+                return true;
             }
             else
             {
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.PrefixLabel(label);
-                EditorGUILayout.HelpBox($"Type {type} not supported", MessageType.Error);
-                EditorGUILayout.EndHorizontal();
-                return value;
+                return false;
             }
         }
 
