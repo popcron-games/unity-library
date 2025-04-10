@@ -7,7 +7,7 @@ using UnityLibrary.Systems;
 
 public abstract class CustomMonoBehaviour : MonoBehaviour
 {
-    protected static UnityObjects UnityObjects => UnityApplication.VM.GetSystem<UnityObjects>();
+    protected static UnityObjects Registry => UnityApplication.VM.GetSystem<UnityObjects>();
 
     private CancellationTokenSource? enabledLifetime = null;
 
@@ -38,12 +38,12 @@ public abstract class CustomMonoBehaviour : MonoBehaviour
         }
 #endif
         enabledLifetime = new();
-        UnityObjects.Register(this);
+        Registry.Register(this);
     }
 
     protected virtual void OnDisable()
     {
-        UnityObjects.Unregister(this);
+        Registry.Unregister(this);
         if (enabledLifetime is not null)
         {
             enabledLifetime.Cancel();

@@ -159,13 +159,13 @@ namespace UnityLibrary
             {
                 assignableTypes = new();
                 Type? objectType = type;
-                while (objectType != null)
+                while (objectType is not null)
                 {
                     Type[] implementingTypes = objectType.GetInterfaces();
                     for (int i = 0; i < implementingTypes.Length; i++)
                     {
                         Type? implementingType = implementingTypes[i];
-                        while (implementingType != null)
+                        while (implementingType is not null)
                         {
                             assignableTypes.Add(implementingType);
                             implementingType = implementingType.BaseType;
