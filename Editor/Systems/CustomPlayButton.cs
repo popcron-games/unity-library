@@ -35,9 +35,19 @@ namespace UnityLibrary.Editor.Systems
         {
             if (change == PlayModeStateChange.EnteredEditMode)
             {
-                EditorPrefs.SetBool(UnityApplication.PlayFromStartKey, false);
                 RestoreOpenedScenes();
                 UnloadEmptyScenes();
+
+                if (EditorPrefs.GetBool(UnityApplication.PlayFromStartKey))
+                {
+                    if (GetFirstScenePathFromBuildSettings() is string firstScenePath)
+                    {
+                        Scene scene = SceneManager.GetSceneByPath(firstScenePath);
+                        SceneManager.UnloadSceneAsync(scene);
+                    }
+                }
+
+                EditorPrefs.SetBool(UnityApplication.PlayFromStartKey, false);
             }
         }
 
@@ -96,20 +106,11 @@ namespace UnityLibrary.Editor.Systems
             EditorPrefs.SetBool(UnityApplication.PlayFromStartKey, true);
             BackupOpenedScenes();
             EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
-            EditorBuildSettingsScene[] buildScenes = EditorBuildSettings.scenes;
-            bool loadedFirstScene = false;
-            for (int i = 0; i < buildScenes.Length; i++)
+            if (GetFirstScenePathFromBuildSettings() is string firstScenePath)
             {
-                EditorBuildSettingsScene buildScene = buildScenes[i];
-                if (buildScene.enabled)
-                {
-                    EditorSceneManager.OpenScene(buildScene.path, OpenSceneMode.Single);
-                    loadedFirstScene = true;
-                    break;
-                }
+                EditorSceneManager.OpenScene(firstScenePath, OpenSceneMode.Single);
             }
-
-            if (!loadedFirstScene)
+            else
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             }
@@ -136,6 +137,18 @@ namespace UnityLibrary.Editor.Systems
 
                     start = position + 1;
                 }
+                else if (position == length - 1)
+                {
+                    ReadOnlySpan<char> activeScenePath = scenesBeforePlay[start..];
+                    for (int i = 0; i < SceneManager.loadedSceneCount; i++)
+                    {
+                        Scene scene = SceneManager.GetSceneAt(i);
+                        if (scene.path.AsSpan().SequenceEqual(activeScenePath))
+                        {
+                            SceneManager.SetActiveScene(scene);
+                        }
+                    }
+                }
 
                 position++;
             }
@@ -156,7 +169,23 @@ namespace UnityLibrary.Editor.Systems
                 }
             }
 
+            builder.Append(SceneManager.GetActiveScene().path);
             EditorPrefs.SetString(ScenesBeforePlayKey, builder.ToString());
+        }
+
+        private static string? GetFirstScenePathFromBuildSettings()
+        {
+            EditorBuildSettingsScene[] buildScenes = EditorBuildSettings.scenes;
+            for (int i = 0; i < buildScenes.Length; i++)
+            {
+                EditorBuildSettingsScene buildScene = buildScenes[i];
+                if (buildScene.enabled)
+                {
+                    return buildScene.path;
+                }
+            }
+
+            return null;
         }
     }
 }
