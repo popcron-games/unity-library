@@ -15,6 +15,9 @@ namespace UnityLibrary.Editor
     public abstract class CustomObjectEditor : UnityEditor.Editor
     {
         private const BindingFlags MemberFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
+        private static readonly Dictionary<Type, FieldInfo[]> typeFields = new();
+        private static readonly Dictionary<Type, PropertyInfo[]> typeProperties = new();
+        private static readonly Dictionary<Type, MethodInfo[]> typeMethods = new();
 
         private static Container? container;
         private static SerializedObject? containerObject;
@@ -29,15 +32,14 @@ namespace UnityLibrary.Editor
 
         protected virtual void OnEnable()
         {
-            FieldInfo[] foundFields = target.GetType().GetFields(MemberFlags);
-            foreach (FieldInfo field in foundFields)
+            Type targetType = target.GetType();
+            foreach (FieldInfo field in GetFields(targetType))
             {
                 SerializedProperty? serializedProperty = serializedObject.FindProperty(field.Name);
                 fields.Add((field, serializedProperty));
             }
 
-            PropertyInfo[] foundProperties = target.GetType().GetProperties(MemberFlags);
-            foreach (PropertyInfo property in foundProperties)
+            foreach (PropertyInfo property in GetProperties(targetType))
             {
                 SerializedProperty? serializedProperty = serializedObject.FindProperty(property.Name);
                 properties.Add((property, serializedProperty));
@@ -48,7 +50,7 @@ namespace UnityLibrary.Editor
             //remove members with HideInInspector attribute
             for (int i = fields.Count - 1; i >= 0; i--)
             {
-                if (ShouldIgnoreMember(foundFields[i]))
+                if (ShouldIgnoreMember(fields[i].Item1))
                 {
                     fields.RemoveAt(i);
                 }
@@ -56,7 +58,7 @@ namespace UnityLibrary.Editor
 
             for (int i = properties.Count - 1; i >= 0; i--)
             {
-                if (ShouldIgnoreMember(foundProperties[i]))
+                if (ShouldIgnoreMember(properties[i].Item1))
                 {
                     properties.RemoveAt(i);
                 }
@@ -617,7 +619,40 @@ namespace UnityLibrary.Editor
             }
         }
 
-        public sealed class Container : ScriptableObject
+        private static FieldInfo[] GetFields(Type type)
+        {
+            if (!typeFields.TryGetValue(type, out FieldInfo[]? fields))
+            {
+                fields = type.GetFields(MemberFlags);
+                typeFields.Add(type, fields);
+            }
+
+            return fields;
+        }
+
+        private static PropertyInfo[] GetProperties(Type type)
+        {
+            if (!typeProperties.TryGetValue(type, out PropertyInfo[]? properties))
+            {
+                properties = type.GetProperties(MemberFlags);
+                typeProperties.Add(type, properties);
+            }
+
+            return properties;
+        }
+
+        private static MethodInfo[] GetMethods(Type type)
+        {
+            if (!typeMethods.TryGetValue(type, out MethodInfo[]? methods))
+            {
+                methods = type.GetMethods(MemberFlags);
+                typeMethods.Add(type, methods);
+            }
+
+            return methods;
+        }
+
+        internal sealed class Container : ScriptableObject
         {
             public bool boolValue;
             public float floatValue;
@@ -635,26 +670,6 @@ namespace UnityLibrary.Editor
             public AnimationCurve animationCurveValue;
             public Gradient gradientValue;
             public UnityEventBase unityEventValue;
-        }
-
-        public sealed class UnityEventContainer<T1> : ScriptableObject
-        {
-            public UnityEvent<T1> value;
-        }
-
-        public sealed class UnityEventContainer<T1, T2> : ScriptableObject
-        {
-            public UnityEvent<T1, T2> value;
-        }
-
-        public sealed class UnityEventContainer<T1, T2, T3> : ScriptableObject
-        {
-            public UnityEvent<T1, T2, T3> value;
-        }
-
-        public sealed class UnityEventContainer<T1, T2, T3, T4> : ScriptableObject
-        {
-            public UnityEvent<T1, T2, T3, T4> value;
         }
     }
 }
