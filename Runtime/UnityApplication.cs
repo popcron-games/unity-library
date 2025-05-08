@@ -125,7 +125,7 @@ namespace UnityLibrary
                 StringBuilder errorBuilder = new();
                 if (availableProgramTypes.Count > 0)
                 {
-                    errorBuilder.Append("Program type in unity application settings asset is not assigned to a found type. Available options are:\n");
+                    errorBuilder.Append("Program type in unity application settings asset is missing. Available options are:\n");
                     foreach (Type type in availableProgramTypes)
                     {
                         errorBuilder.Append(type.AssemblyQualifiedName);
@@ -142,21 +142,27 @@ namespace UnityLibrary
                 return default;
             }
 
-            //fail if initial data is missing
-            IInitialData? initialData = settings.InitialData;
-            if (initialData is null)
-            {
-                Debug.LogWarning("Initial data in unity application settings asset is not assigned", settings);
-                initialData = new EmptyInitialData();
-            }
-
             //fail if editor systems cant be found, (extra for editor)
             if (unityEditorType is null)
             {
                 Debug.LogError($"Expected editor systems type `{UnityEditorApplication}` not found");
                 return default;
             }
+#else
+            //fail if state type is missing, this is needed
+            if (settings.ProgramType is null)
+            {
+                Debug.LogError("Program type in unity application settings asset is missing", settings);
+                return default;
+            }
 #endif
+            //default to empty initial data if not assigned
+            IInitialData? initialData = settings.InitialData;
+            if (initialData is null)
+            {
+                Debug.LogWarning("Initial data in unity application settings asset is not assigned", settings);
+                initialData = new EmptyInitialData();
+            }
 
             VirtualMachine vm = new(initialData);
 #if UNITY_EDITOR
