@@ -1,4 +1,5 @@
 ﻿#nullable enable
+using System.Diagnostics.CodeAnalysis;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -24,6 +25,21 @@ namespace UnityLibrary
             }
 
             return throwawayList;
+        }
+
+        public bool TryGetFirst<T>([NotNullWhen(true)] out T? first)
+        {
+            foreach (Object obj in assets)
+            {
+                if (obj is T t)
+                {
+                    first = t;
+                    return true;
+                }
+            }
+
+            first = default;
+            return false;
         }
 
         void IListener<Validate>.Receive(VirtualMachine vm, ref Validate ev)
