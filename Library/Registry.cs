@@ -1,13 +1,15 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace UnityLibrary
 {
     /// <summary>
     /// Allows for efficient retrieval of instances by type.
     /// </summary>
-    public class Registry : IObject
+    public class Registry : IRegistry
     {
         private static readonly Dictionary<Type, HashSet<Type>> typeToAssignableTypes = new();
 
@@ -21,42 +23,29 @@ namespace UnityLibrary
         /// </summary>
         public Action<object>? onUnregistered;
 
-        private readonly HashSet<object> objects = new();
+        private readonly List<object> objects = new();
         private readonly Dictionary<Type, ArrayList> assignableTypeToObjects = new();
 
-        public IReadOnlyCollection<object> All => objects;
+        public IReadOnlyList<object> All => objects;
         public int Count => objects.Count;
 
         public void Register(object value)
         {
-            if (TryRegister(value))
-            {
-                //ok
-            }
-            else
-            {
-                throw new InvalidOperationException($"Object {value} ({value.GetType()}) cannot be registered because it has already been registered");
-            }
+            ThrowIfRegistered(value);
+            Add(value);
         }
 
         public void Unregister(object value)
         {
-            if (TryUnregister(value))
-            {
-                //ok
-            }
-            else
-            {
-                throw new InvalidOperationException($"Object {value} ({value.GetType()}) cannot be unregistered because it has not been registered");
-            }
+            ThrowIfUnregistered(value);
+            Remove(value);
         }
 
         public bool TryRegister(object value)
         {
-            if (objects.Add(value))
+            if (!objects.Contains(value))
             {
                 Add(value);
-                onRegistered?.Invoke(value);
                 return true;
             }
             else
@@ -67,9 +56,8 @@ namespace UnityLibrary
 
         public bool TryUnregister(object value)
         {
-            if (objects.Remove(value))
+            if (objects.Contains(value))
             {
-                onUnregistered?.Invoke(value);
                 Remove(value);
                 return true;
             }
@@ -81,6 +69,7 @@ namespace UnityLibrary
 
         private void Add(object value)
         {
+            objects.Add(value);
             foreach (Type assignableType in GetAssignableTypes(value.GetType()))
             {
                 if (assignableTypeToObjects.TryGetValue(assignableType, out ArrayList? objects))
@@ -94,10 +83,13 @@ namespace UnityLibrary
                     assignableTypeToObjects.Add(assignableType, objects);
                 }
             }
+
+            onRegistered?.Invoke(value);
         }
 
         private void Remove(object value)
         {
+            onUnregistered?.Invoke(value);
             Type type = value.GetType();
             if (typeToAssignableTypes.TryGetValue(type, out _))
             {
@@ -106,9 +98,15 @@ namespace UnityLibrary
                     if (assignableTypeToObjects.TryGetValue(assignableType, out ArrayList? objects))
                     {
                         objects.Remove(value);
+                        if (objects.Count == 0)
+                        {
+                            assignableTypeToObjects.Remove(assignableType);
+                        }
                     }
                 }
             }
+
+            objects.Remove(value);
         }
 
         public bool Contains(object value)
@@ -129,9 +127,7 @@ namespace UnityLibrary
             }
             else
             {
-                objects = new();
-                assignableTypeToObjects.Add(type, objects);
-                return objects.AsReadOnlyList<T>();
+                return Array.Empty<T>();
             }
         }
 
@@ -147,9 +143,78 @@ namespace UnityLibrary
             }
             else
             {
-                objects = new ArrayList();
-                assignableTypeToObjects.Add(type, objects);
-                return objects;
+                return Array.Empty<object>();
+            }
+        }
+
+        /// <summary>
+        /// Tries to retrieve the first instance of type <typeparamref name="T"/>.
+        /// </summary>
+        public bool TryGetFirst<T>([NotNullWhen(true)] out T? value) where T : notnull
+        {
+            if (assignableTypeToObjects.TryGetValue(typeof(T), out ArrayList? objects))
+            {
+                value = (T)objects[0];
+                return true;
+            }
+
+            value = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Tries to retrieve the first instance of the given <paramref name="type"/>.
+        /// </summary>
+        public bool TryGetFirst(Type type, [NotNullWhen(true)] out object? value)
+        {
+            if (assignableTypeToObjects.TryGetValue(type, out ArrayList? objects))
+            {
+                value = objects[0];
+                return true;
+            }
+
+            value = default;
+            return false;
+        }
+
+        public T GetFirst<T>() where T : notnull
+        {
+            ThrowIfNone(typeof(T));
+            ArrayList? objects = assignableTypeToObjects[typeof(T)];
+            return (T)objects[0];
+        }
+
+        public object GetFirst(Type type)
+        {
+            ThrowIfNone(type);
+            ArrayList? objects = assignableTypeToObjects[type];
+            return objects[0];
+        }
+
+        [Conditional("DEBUG")]
+        private void ThrowIfNone(Type type)
+        {
+            if (!assignableTypeToObjects.ContainsKey(type))
+            {
+                throw new($"No objects of type {type} have been registered");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private void ThrowIfRegistered(object value)
+        {
+            if (objects.Contains(value))
+            {
+                throw new($"Object {value} ({value.GetType()}) has already been registered");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private void ThrowIfUnregistered(object value)
+        {
+            if (!objects.Contains(value))
+            {
+                throw new($"Object {value} ({value.GetType()}) has not been registered");
             }
         }
 

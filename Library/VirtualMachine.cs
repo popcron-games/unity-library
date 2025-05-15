@@ -1,56 +1,29 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using UnityLibrary.Events;
 
 namespace UnityLibrary
 {
     /// <summary>
-    /// Contains systems to represent the state of a game/program,
-    /// with a provided <see cref="IProgram"/> to carry custom logic.
+    /// Contains systems that can receive events through the <see cref="IListener{T}"/> interface.
     /// </summary>
     public class VirtualMachine : IDisposable
     {
-        private static readonly IInitialData fallbackEmptyData = new EmptyInitialData();
-
         private readonly Registry systemRegistry = new();
-        private readonly WeakReference<IInitialData>? initialData;
         private bool disposed;
 
-        public IReadOnlyCollection<object> Systems => systemRegistry.All;
-        public bool IsDisposed => disposed;
-
         /// <summary>
-        /// Creates an empty virtual machine.
+        /// All added systems.
         /// </summary>
-        public VirtualMachine(IInitialData? initialData = null)
-        {
-            if (initialData is not null)
-            {
-                this.initialData = new WeakReference<IInitialData>(initialData);
-            }
-        }
-
-        public IInitialData GetInitialData()
-        {
-            if (initialData is not null && initialData.TryGetTarget(out IInitialData? target))
-            {
-                return target;
-            }
-            else
-            {
-                return fallbackEmptyData;
-            }
-        }
+        public IReadOnlyList<object> Systems => systemRegistry.All;
+        public bool IsDisposed => disposed;
 
         public void Dispose()
         {
-            if (disposed)
-            {
-                throw new Exception("Virtual machine is already disposed");
-            }
-
+            ThrowIfDisposed();
             disposed = true;
         }
 
@@ -95,16 +68,9 @@ namespace UnityLibrary
 
         public void AddSystem(object system)
         {
-            if (!systemRegistry.Contains(system))
-            {
-                systemRegistry.Register(system);
-                Type type = system.GetType();
-                Broadcast(new SystemAdded(this, type));
-            }
-            else
-            {
-                throw new InvalidOperationException($"System instance {system} has already been added in virtual machine");
-            }
+            systemRegistry.Register(system);
+            Type type = system.GetType();
+            Broadcast(new SystemAdded(this, type));
         }
 
         public object RemoveSystem(Type type)
@@ -161,7 +127,7 @@ namespace UnityLibrary
             {
                 system = systems[0];
                 Broadcast(new SystemRemoved(this, typeof(T)));
-                systemRegistry.Unregister(system);
+                systemRegistry.TryUnregister(system);
                 return true;
             }
             else
@@ -174,6 +140,38 @@ namespace UnityLibrary
         public bool TryRemoveSystem<T>() where T : notnull
         {
             return TryRemoveSystem<T>(out _);
+        }
+
+        public bool TryRemoveSystem(Type systemType, [NotNullWhen(true)] out object? system)
+        {
+            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(systemType);
+            if (systems.Count > 0)
+            {
+                system = systems[0];
+                Broadcast(new SystemRemoved(this, systemType));
+                systemRegistry.TryUnregister(system);
+                return true;
+            }
+            else
+            {
+                system = default;
+                return false;
+            }
+        }
+
+        public bool TryGetSystem(Type systemType, [NotNullWhen(true)] out object? system)
+        {
+            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(systemType);
+            if (systems.Count > 0)
+            {
+                system = systems[0];
+                return true;
+            }
+            else
+            {
+                system = default;
+                return false;
+            }
         }
 
         public bool TryGetSystem<T>([NotNullWhen(true)] out T? system) where T : notnull
@@ -215,6 +213,15 @@ namespace UnityLibrary
         public void Broadcast<T>(T ev) where T : notnull
         {
             Broadcast(ref ev);
+        }
+
+        [Conditional("DEBUG")]
+        private void ThrowIfDisposed()
+        {
+            if (disposed)
+            {
+                throw new ObjectDisposedException("Virtual machine is disposed");
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using Object = UnityEngine.Object;
 using UnityLibrary.Events;
+using System.Diagnostics;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -14,17 +15,14 @@ using UnityEditor;
 namespace UnityLibrary
 {
     /// <summary>
-    /// Singleton asset accessible from anywhere, containing user assets.
+    /// Singleton asset accessible from anywhere, containing assets needed for the application to run.
     /// </summary>
-    /// <remarks>It's base type is not meant to be a <see cref="CustomScriptableObject"/>, as this would cause a circular reference problem.
-    /// during the <see cref="OnEnable"/> event.
-    /// <para></para>
-    /// Despite it being a <see cref="ScriptableObject"/> and thus not having the ability to receive events by default, it implements
-    /// <see cref="IListener{TestEvent}"/> anyway as its injected into the tested manually to avoid the circular reference issue.
-    /// </remarks>
-    [DefaultExecutionOrder(int.MinValue + 20)]
-    public sealed class UnityApplicationSettings : ScriptableObject, IInitialData, IListener<Validate>
+    [ExecuteAlways, DefaultExecutionOrder(int.MinValue)]
+    public sealed class UnityApplicationSettings : ScriptableObject, IListener<Validate>
     {
+        public const string ProgramTypeName = nameof(programTypeName);
+        public const string EditorSystemsTypeName = nameof(editorSystemsTypeName);
+
         private static UnityApplicationSettings? singleton;
 
         /// <summary>
@@ -37,15 +35,11 @@ namespace UnityLibrary
 #if UNITY_EDITOR
                 if (singleton == null)
                 {
-                    singleton = CreateInstance();
+                    singleton = GetOrCreateInstance();
                 }
 #endif
-                if (singleton == null)
-                {
-                    throw new Exception("Program is executing in a state where the unity application settings aren't available");
-                }
-
-                return singleton;
+                ThrowIfSingletonIsMissing();
+                return singleton!;
             }
         }
 
@@ -53,7 +47,7 @@ namespace UnityLibrary
         private string? programTypeName;
 
         [SerializeField]
-        private InitialAssets? initialData;
+        private string? editorSystemsTypeName;
 
         /// <summary>
         /// The <see cref="IProgram"/> type to use when <see cref="UnityApplication"/> creates its virtual machine.
@@ -71,37 +65,43 @@ namespace UnityLibrary
             }
         }
 
-        public InitialAssets? InitialData => initialData != null ? initialData : null;
+        /// <summary>
+        /// The editor only seems type.
+        /// </summary>
+        public Type? EditorSystemsType
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(editorSystemsTypeName))
+                {
+                    return null;
+                }
+
+                return Type.GetType(editorSystemsTypeName);
+            }
+        }
 
         void IListener<Validate>.Receive(VirtualMachine vm, ref Validate e)
         {
-            Assert.IsNotNull(ProgramType, $"{nameof(programTypeName)} is null, please set it in the unity application settings asset");
+            Assert.IsNotNull(ProgramType, $"Program type is null, please set it in the unity application settings asset");
         }
 
         private void OnEnable()
         {
-            singleton = this;
-#if UNITY_EDITOR
-            EditorPrefs.SetString(nameof(UnityApplicationSettings) + ".path", AssetDatabase.GetAssetPath(this));
-#endif
+            if (singleton == null)
+            {
+                singleton = this;
+                UnityApplication.Start();
+            }
         }
 
         private void OnDisable()
         {
-            singleton = null;
-        }
-
-        /// <summary>
-        /// Iterates over all assets that are assignable to <typeparamref name="T"/>.
-        /// </summary>
-        public IReadOnlyList<T> GetAllThatAre<T>()
-        {
-            if (initialData is null)
+            if (singleton == this)
             {
-                return Array.Empty<T>();
+                UnityApplication.Stop();
+                singleton = null;
             }
-
-            return initialData.GetAllThatAre<T>();
         }
 
         public bool TryAssignProgramType(Type newProgramType)
@@ -114,62 +114,61 @@ namespace UnityLibrary
             else return false;
         }
 
-        public bool TryAssignInitialData(InitialAssets assets)
+        public bool TryAssignEditorSystemsType(Type newEditorSystemsType)
         {
-            if (initialData != assets)
+            if (editorSystemsTypeName != newEditorSystemsType.AssemblyQualifiedName)
             {
-                initialData = assets;
+                editorSystemsTypeName = newEditorSystemsType.AssemblyQualifiedName;
                 return true;
             }
             else return false;
         }
 
-#if UNITY_EDITOR
-        private static UnityApplicationSettings CreateInstance()
+        [Conditional("DEBUG")]
+        private static void ThrowIfSingletonIsMissing()
         {
-            string[] guids = AssetDatabase.FindAssets($"t:{nameof(UnityApplicationSettings)}");
-            UnityApplicationSettings? found = null;
-            foreach (string guid in guids)
+            if (singleton == null)
             {
-                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
-                UnityApplicationSettings asset = AssetDatabase.LoadAssetAtPath<UnityApplicationSettings>(assetPath);
-                if (found == null)
-                {
-                    found = asset;
-                }
-                else
-                {
-                    Debug.LogWarningFormat(asset, "Duplicate unity application settings asset found at {0}, choosing first found {1}", AssetDatabase.GetAssetPath(asset), found);
-                    break;
-                }
+                throw new($"UnityApplicationSettings singleton is missing");
             }
+        }
 
+#if UNITY_EDITOR
+        private static UnityApplicationSettings GetOrCreateInstance()
+        {
             List<Object> preloadedAssets = PlayerSettings.GetPreloadedAssets().ToList();
             foreach (Object obj in preloadedAssets)
             {
-                found = obj as UnityApplicationSettings;
-                if (found != null)
+                if (obj != null && obj is UnityApplicationSettings existingSettings)
                 {
-                    break;
+                    return existingSettings;
                 }
             }
 
-            if (found == null)
+            string[] guids = AssetDatabase.FindAssets($"t:{typeof(UnityApplicationSettings).Name}");
+            if (guids.Length > 0)
             {
-                found = CreateInstance<UnityApplicationSettings>();
-                string path = "Assets/Settings.asset";
-                AssetDatabase.CreateAsset(found, path);
-                AssetDatabase.SaveAssets();
-                Debug.LogFormat("Created unity application settings asset at {0}", path);
+                foreach (string guid in guids)
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    UnityApplicationSettings existingSettings = AssetDatabase.LoadAssetAtPath<UnityApplicationSettings>(path);
+                    if (existingSettings != null)
+                    {
+                        preloadedAssets.Add(existingSettings);
+                        PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
+                        return existingSettings;
+                    }
+                }
             }
 
-            if (!preloadedAssets.Contains(found))
-            {
-                preloadedAssets.Add(found);
-                PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
-            }
-
-            return found;
+            UnityApplicationSettings newInstance = CreateInstance<UnityApplicationSettings>();
+            AssetDatabase.CreateAsset(newInstance, "Assets/Settings.asset");
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            UnityEngine.Debug.Log($"Created unity application settings asset", newInstance);
+            preloadedAssets.Add(newInstance);
+            PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
+            return newInstance;
         }
 #endif
     }

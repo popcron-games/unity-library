@@ -26,7 +26,12 @@ namespace UnityLibrary.Editor.Systems
             if (change == PlayModeStateChange.ExitingEditMode)
             {
                 PlayValidationTester tester = vm.GetSystem<PlayValidationTester>();
-                if (!tester.TestOpenedScenes(vm) || !tester.TestStarting(vm))
+                if (!tester.TestOpenedScenes(vm) && !UnityApplication.IsUnityPlayer)
+                {
+                    EditorApplication.isPlaying = false;
+                    Debug.LogError("Unable to enter play mode due to errors.");
+                }
+                else if (!tester.TestStarting(vm))
                 {
                     EditorApplication.isPlaying = false;
                     Debug.LogError("Unable to enter play mode due to errors.");

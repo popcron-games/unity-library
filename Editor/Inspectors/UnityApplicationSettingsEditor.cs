@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -11,6 +12,8 @@ namespace UnityLibrary.Editor
     {
         private static readonly string[] programTypeDisplayOptions;
         private static readonly Type[] programTypeOptions;
+        private static readonly string[] editorSystemsTypeDisplayOptions;
+        private static readonly Type[] editorSystemsTypeOptions;
 
         static UnityApplicationSettingsEditor()
         {
@@ -18,7 +21,7 @@ namespace UnityLibrary.Editor
             List<Type> options = new();
             foreach (Type type in TypeCache.GetTypesDerivedFrom<IProgram>())
             {
-                if (type.IsPublic)
+                if (type.IsPublic && !type.IsAbstract)
                 {
                     displayOptions.Add($"{type.Assembly.GetName().Name}/{type.Name}");
                     options.Add(type);
@@ -27,18 +30,50 @@ namespace UnityLibrary.Editor
 
             programTypeDisplayOptions = displayOptions.ToArray();
             programTypeOptions = options.ToArray();
+            displayOptions.Clear();
+            options.Clear();
+            foreach (Type type in TypeCache.GetTypesDerivedFrom<object>())
+            {
+                if (type.IsPublic && !type.IsAbstract)
+                {
+                    bool referencesThisLibrary = false;
+                    foreach (AssemblyName? reference in type.Assembly.GetReferencedAssemblies())
+                    {
+                        if (reference.Name == "UnityLibrary")
+                        {
+                            referencesThisLibrary = true;
+                            break;
+                        }
+                    }
+
+                    if (referencesThisLibrary)
+                    {
+                        displayOptions.Add($"{type.Assembly.GetName().Name}/{type.Name}");
+                        options.Add(type);
+                    }
+                }
+            }
+
+            editorSystemsTypeDisplayOptions = displayOptions.ToArray();
+            editorSystemsTypeOptions = options.ToArray();
         }
 
         private UnityApplicationSettings settings;
         private bool editProgramTypeNameManually;
+        private bool editEditorSystemsTypeNameManually;
         private SerializedProperty programTypeName;
-        private SerializedProperty initialData;
+        private SerializedProperty editorSystemsTypeName;
 
         private void OnEnable()
         {
             settings = (UnityApplicationSettings)target;
-            programTypeName = serializedObject.FindProperty("programTypeName");
-            initialData = serializedObject.FindProperty("initialData");
+            programTypeName = serializedObject.FindProperty(UnityApplicationSettings.ProgramTypeName);
+            editorSystemsTypeName = serializedObject.FindProperty(UnityApplicationSettings.EditorSystemsTypeName);
+        }
+
+        private Type? GetEditorSystemsType()
+        {
+            return Type.GetType(editorSystemsTypeName.stringValue);
         }
 
         public override void OnInspectorGUI()
@@ -99,19 +134,35 @@ namespace UnityLibrary.Editor
 
             EditorGUILayout.EndHorizontal();
 
-            //show initial data
-            bool initialDataIsMissing = initialData.objectReferenceValue == null;
-            if (initialDataIsMissing)
+            //show editor systems type field
+            EditorGUILayout.BeginHorizontal();
+            Type? editorSystemsType = GetEditorSystemsType();
+            if (!editEditorSystemsTypeNameManually)
             {
-                GUI.color = Color.red;
+                int selectedEditorSystemsType = Array.IndexOf(editorSystemsTypeOptions, editorSystemsType);
+                int newEditorSystemsType = EditorGUILayout.Popup("Editor Systems Type", selectedEditorSystemsType, editorSystemsTypeDisplayOptions);
+                if (newEditorSystemsType != selectedEditorSystemsType)
+                {
+                    Type newType = editorSystemsTypeOptions[newEditorSystemsType];
+                    if (settings.TryAssignEditorSystemsType(newType))
+                    {
+                        EditorUtility.SetDirty(settings);
+                        AssetDatabase.SaveAssetIfDirty(settings);
+                        UnityApplication.Reinitialize();
+                    }
+                }
+            }
+            else
+            {
+                EditorGUILayout.PropertyField(editorSystemsTypeName, new GUIContent("Editor Systems Type"), GUILayout.ExpandWidth(true));
             }
 
-            EditorGUILayout.PropertyField(initialData, new GUIContent("Initial Data"));
-            if (initialDataIsMissing)
+            if (GUILayout.Button(EditorGUIUtility.IconContent("d_editicon.sml"), GUILayout.Width(30)))
             {
-                GUI.color = Color.white;
+                editEditorSystemsTypeNameManually = !editEditorSystemsTypeNameManually;
             }
 
+            EditorGUILayout.EndHorizontal();
             serializedObject.ApplyModifiedProperties();
         }
     }

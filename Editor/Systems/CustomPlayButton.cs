@@ -80,7 +80,7 @@ namespace UnityLibrary.Editor.Systems
 
             if (GUILayout.Button(new GUIContent("Playing"), GUILayout.Height(ButtonHeight)))
             {
-                if (tester.TestOpenedScenes(vm) && tester.TestStarting(vm))
+                if (tester.TestStarting(vm))
                 {
                     Debug.Log("Play validation checks passed.");
                 }

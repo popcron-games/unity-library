@@ -1,5 +1,6 @@
 ﻿#nullable enable
 using System;
+using System.Diagnostics;
 using System.Threading;
 using UnityEngine;
 using UnityLibrary;
@@ -7,54 +8,57 @@ using UnityLibrary.Systems;
 
 public abstract class CustomMonoBehaviour : MonoBehaviour
 {
-    protected static UnityObjects Registry => UnityApplication.VM.GetSystem<UnityObjects>();
+    public static VirtualMachine VM => UnityApplication.VM;
+    public static UnityObjects UnityObjects => VM.GetSystem<UnityObjects>();
 
     private CancellationTokenSource? enabledLifetime = null;
+    private UnityObjects? unityObjects = null;
 
     /// <summary>
     /// Cancellation token thats raised when <see cref="OnDisable"/> is called.
     /// </summary>
-    public CancellationToken DisableCancellationToken
+    public CancellationToken disableCancellationToken
     {
         get
         {
-#if UNITY_EDITOR
-            if (enabledLifetime is null)
-            {
-                throw new InvalidOperationException("Attempting to retrieve token representing the enabled state of the component, but it hasn't been enabled yet.");
-            }
-#endif
-
-            return enabledLifetime.Token;
+            ThrowIfNotEnabledYet();
+            return enabledLifetime!.Token;
         }
     }
 
     protected virtual void OnEnable()
     {
-#if UNITY_EDITOR
-        if (enabledLifetime is not null)
-        {
-            throw new InvalidOperationException("Attempting to enable a component that's already enabled.");
-        }
-#endif
+        ThrowIfAlreadyEnabled();
         enabledLifetime = new();
-        Registry.Register(this);
+        unityObjects = UnityObjects;
+        unityObjects.Register(this);
     }
 
     protected virtual void OnDisable()
     {
-        Registry.Unregister(this);
+        ThrowIfNotEnabledYet();
+        unityObjects?.Unregister(this);
+        unityObjects = null;
+        enabledLifetime!.Cancel();
+        enabledLifetime!.Dispose();
+        enabledLifetime = null;
+    }
+
+    [Conditional("DEBUG")]
+    private void ThrowIfNotEnabledYet()
+    {
+        if (enabledLifetime is null)
+        {
+            throw new InvalidOperationException("Attempting to access a component that hasn't been enabled yet");
+        }
+    }
+
+    [Conditional("DEBUG")]
+    private void ThrowIfAlreadyEnabled()
+    {
         if (enabledLifetime is not null)
         {
-            enabledLifetime.Cancel();
-            enabledLifetime.Dispose();
-            enabledLifetime = null;
-        }
-        else
-        {
-#if UNITY_EDITOR
-            throw new InvalidOperationException("Attempting to disable a component that hasn't been enabled yet.");
-#endif
+            throw new InvalidOperationException("Attempting to enable a component that's already enabled");
         }
     }
 }

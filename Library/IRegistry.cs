@@ -8,7 +8,7 @@ namespace UnityLibrary
     /// <summary>
     /// Read only access to <see cref="object"/> description.
     /// </summary>
-    public interface IObject
+    public interface IRegistry
     {
         /// <summary>
         /// Fetches a list of all instances that implement <typeparamref name="T"/>, subtype from it, or are that type.

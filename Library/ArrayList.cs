@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace UnityLibrary
 {
-    public sealed class ArrayList : IReadOnlyList<object>
+    internal sealed class ArrayList : IReadOnlyList<object>
     {
         private object[] array;
         private int count;
@@ -54,7 +54,7 @@ namespace UnityLibrary
             }
         }
 
-        public IReadOnlyList<T> AsReadOnlyList<T>()
+        public ReadOnlyList<T> AsReadOnlyList<T>()
         {
             return new ReadOnlyList<T>(this);
         }

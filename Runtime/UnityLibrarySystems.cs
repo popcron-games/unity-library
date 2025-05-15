@@ -3,6 +3,9 @@ using UnityLibrary.Systems;
 
 namespace UnityLibrary
 {
+    /// <summary>
+    /// Collection of built-in systems.
+    /// </summary>
     public class UnityLibrarySystems : IDisposable
     {
         private readonly VirtualMachine vm;

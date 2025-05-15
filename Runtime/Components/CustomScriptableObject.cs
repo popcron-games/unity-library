@@ -5,21 +5,25 @@ namespace UnityLibrary
 {
     /// <summary>
     /// Custom implementation of a <see cref="UnityEngine.ScriptableObject"/>
-    /// that is fetchable from <see cref="UnityObjects"/> and receives events when implementing <see cref="IListener{T}"/>.
+    /// that is fetchable from <see cref="Systems.UnityObjects"/> and receives events when implementing <see cref="IListener{T}"/>.
     /// </summary>
     public abstract class CustomScriptableObject : UnityEngine.ScriptableObject
     {
-        protected static VirtualMachine VM => UnityApplication.VM;
-        protected static UnityObjects Objects => VM.GetSystem<UnityObjects>();
+        public static VirtualMachine VM => UnityApplication.VM;
+        public static UnityObjects UnityObjects => VM.GetSystem<UnityObjects>();
+
+        private UnityObjects? unityObjects = null;
 
         protected virtual void OnEnable()
         {
-            Objects.TryRegister(this);
+            unityObjects = UnityObjects;
+            unityObjects.TryRegister(this);
         }
 
         protected virtual void OnDisable()
         {
-            Objects.TryUnregister(this);
+            unityObjects?.TryUnregister(this);
+            unityObjects = null;
         }
     }
 }

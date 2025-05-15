@@ -4,8 +4,8 @@ A framework for Unity.
 
 ### Programs and systems
 
-Programs are surface level objects that are operated by a virtual machine.
-They, along with systems are able to receive events using the `IListener<T>` interface:
+Programs are surface level constructs that are operated by a `VirtualMachine`.
+They, along with added systems are able to receive events with the `IListener<T>` interface:
 ```cs
 [Preserve]
 public class GameProgram : IProgram
@@ -75,9 +75,11 @@ Validation can also be performed before attempting to play:
 
 ### The `UnityLibrarySystems` type
 
-This system type is a wrapper for `UnityObjects` and `UnityEventDispatcher`. Overall it provides these characteristics:
+This included system is a collection of these:
 
-**Events from the Unity runtime will be dispatched**:
+**`UnityEventDispatcher`**:
+
+Dispatches events from the Unity runtime to all systems:
 
 ```cs
 public class MySystem : IListener<ApplicationStarted>, IListener<UpdateEvent>, IListener<ApplicationFinished>
@@ -99,67 +101,22 @@ public class MySystem : IListener<ApplicationStarted>, IListener<UpdateEvent>, I
 }
 ```
 
-**Objects that register with `UnityObjects` can be polled, and receive events with `IListener<T>`**
+**`UnityObjects`**
+
+Stores all `MonoBehaviour` and `ScriptableObject` that were manually registered with it.
 
 ```cs
-public class Pickup : MonoBehaviour
+public class Pickup : CustomMonoBehaviour
 {
-    private static UnityObjects Registry => UnityApplication.VM.GetSystem<UnityObjects>();
-
     //exposes a list of all pickups in the scene
     public static IReadOnlyList<Pickup> All => Registry.GetAllThatAre<Pickup>();
-
-    private void OnEnable()
-    {
-        Registry.Register(this);
-    }
-
-    private void OnDisable()
-    {
-        Registry.Unregister(this);
-    }
 }
 ```
 
-### CustomMonoBehaviour and CustomScriptableObject
+### The `CustomMonoBehaviour` and `CustomScriptableObject`
 
-These two types are wrappers for `MonoBehaviour` and `ScriptableObject`. They register
-themselves with `UnityObjects` in `OnEnable()` and `OnDisable()` events, allowing them
-to be polled and receive events:
-```cs
-public class TheComponent : CustomMonoBehaviour, IListener<Validate>, IListener<UpdateEvent>
-{
-    [SerializeField] private Vector2 thing; //must not be 0, 0
-
-    void IListener<Validate>.Receive(VirtualMachine vm, ref Validate e)
-    {
-        Assert.That(thing, Is.Not.EqualTo(default(Vector2)));
-    }
-
-    void IListener<UpdateEvent>.Receive(VirtualMachine vm, ref UpdateEvent e)
-    {
-        Debug.Log($"Update event: {e.delta}");
-    }
-
-    public static bool TryFindWithValue(Vector2 value, [NotNullWhen(true)] out TheComponent? component)
-    {
-        //finds the first component with the given value
-        foreach (TheComponent c in Registry.GetAllThatAre<TheComponent>())
-        {
-            if (c.thing == value)
-            {
-                component = c;
-                return true;
-            }
-        }
-
-        component = null;
-        return false;
-    }
-}
-```
-
-Works with `[ExecuteAlways]`.
+These two sub types register themselves with the `UnityObjects` system in `OnEnable()` 
+and unregister in `OnDisable()`. They are not a requirement.
 
 ### Contributing and design
 

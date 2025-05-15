@@ -5,6 +5,7 @@ using System.Text;
 using System.Runtime.CompilerServices;
 using System.Reflection;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -32,12 +33,14 @@ namespace UnityLibrary
 
         private static VirtualMachine? vm;
         private static IProgram? program;
-        private static bool started;
-        private static bool stopped;
+        private static Type? editorSystemsType;
+        private static State state = State.Stopped;
 
         /// <summary>
         /// Always <see cref="true"/> in builds.
-        /// In editor, only <see cref="true"/> when playing as if immitating how build would play (custom play button).
+        /// <para>
+        /// When in editor, only <see cref="true"/> if playing from start with the custom play button.
+        /// </para>
         /// </summary>
         public static bool IsUnityPlayer
         {
@@ -61,7 +64,7 @@ namespace UnityLibrary
             {
                 if (vm is null)
                 {
-                    throw new Exception("Unable to access virtual machine because of initialization errors");
+                    throw new("Virtual Machine not available");
                 }
 
                 return vm;
@@ -70,14 +73,14 @@ namespace UnityLibrary
 
         static UnityApplication()
         {
-            (vm, program) = Start();
+            //Start();
 #if UNITY_EDITOR
             AppDomain.CurrentDomain.DomainUnload += (sender, args) =>
             {
                 AppDomain domain = (AppDomain)sender;
                 if (domain.FriendlyName == "Unity Child Domain")
                 {
-                    Stop();
+                    //Stop();
                 }
             };
 #endif
@@ -87,27 +90,20 @@ namespace UnityLibrary
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Initialize()
         {
-            Application.quitting += OnQuitting;
-        }
-
-        private static void OnQuitting()
-        {
-            Application.quitting -= OnQuitting;
-            Stop();
+            Application.quitting += () =>
+            {
+                Application.quitting -= OnQuitting;
+                //Stop();
+            }
         }
 #endif
 
-        private static (VirtualMachine? vm, IProgram? program) Start()
+        internal static void Start()
         {
-            if (started)
-            {
-                throw new Exception("Was already asked to be started");
-            }
-
-            started = true;
-
-            UnityApplicationSettings settings;
-            settings = UnityApplicationSettings.Singleton;
+            ThrowIfNotStopped();
+            ThrowIfStarted();
+            state = State.Started;
+            UnityApplicationSettings settings = UnityApplicationSettings.Singleton;
 
 #if UNITY_EDITOR
             //fail if state type is missing, this is needed
@@ -137,67 +133,92 @@ namespace UnityLibrary
                     errorBuilder.Append($"No types found that implement {nameof(IProgram)}. Please create a struct type that implements it, and assign it to the unity application settings asset");
                 }
 
-                Exception exception = new(errorBuilder.ToString());
-                Debug.LogException(exception, settings);
-                return default;
+                throw new(errorBuilder.ToString());
             }
 
             //fail if editor systems cant be found, (extra for editor)
             if (unityEditorType is null)
             {
-                Debug.LogError($"Expected editor systems type `{UnityEditorApplication}` not found");
-                return default;
+                throw new($"Expected editor systems type `{UnityEditorApplication}` not found");
             }
 #else
             //fail if state type is missing, this is needed
             if (settings.ProgramType is null)
             {
-                Debug.LogError("Program type in unity application settings asset is missing", settings);
-                return default;
+                throw new($"Program type in unity application settings asset is missing");
             }
 #endif
-            //default to empty initial data if not assigned
-            IInitialData? initialData = settings.InitialData;
-            if (initialData is null)
-            {
-                Debug.LogWarning("Initial data in unity application settings asset is not assigned", settings);
-                initialData = new EmptyInitialData();
-            }
 
-            VirtualMachine vm = new(initialData);
+            vm = new();
 #if UNITY_EDITOR
             unityEditorType.GetMethod("Start", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
 #endif
-            IProgram program = (IProgram)Activator.CreateInstance(settings.ProgramType);
+            program = (IProgram)Activator.CreateInstance(settings.ProgramType);
             program.Start(vm);
-            return (vm, program);
+            editorSystemsType = AddEditorSystems(vm, settings);
         }
 
-        public static void Reinitialize()
+        private static Type? AddEditorSystems(VirtualMachine vm, UnityApplicationSettings settings)
         {
-            if (started && vm is null)
+#if UNITY_EDITOR
+            Type? editorSystemsType = settings.EditorSystemsType;
+            if (editorSystemsType is not null)
             {
-                started = false;
+                object? editorSystem = null;
+                foreach (ConstructorInfo constructor in editorSystemsType.GetConstructors())
+                {
+                    ParameterInfo[] parameters = constructor.GetParameters();
+                    if (parameters.Length == 1 && parameters[0].ParameterType == typeof(VirtualMachine))
+                    {
+                        editorSystem = Activator.CreateInstance(editorSystemsType, new object[] { vm });
+                        break;
+                    }
+                }
+
+                if (editorSystem is null)
+                {
+                    editorSystem = Activator.CreateInstance(editorSystemsType);
+                }
+
+                vm.AddSystem(editorSystem);
             }
 
-            if (!stopped)
-            {
-                Stop();
-            }
-
-            (vm, program) = Start();
+            return editorSystemsType;
+#else
+            return null;
+#endif
         }
 
-        private static void Stop()
+        private static void RemoveEditorSystems(VirtualMachine vm)
         {
-            if (stopped)
+#if UNITY_EDITOR
+            if (editorSystemsType is not null)
             {
-                throw new Exception("Was already asked to be stopped");
+                if (vm.TryRemoveSystem(editorSystemsType, out object? editorSystem))
+                {
+                    if (editorSystem is IDisposable disposable)
+                    {
+                        disposable.Dispose();
+                    }
+                }
             }
+#endif
+        }
 
-            stopped = true;
+        internal static void Reinitialize()
+        {
+            Stop();
+            Start();
+        }
+
+        internal static void Stop()
+        {
+            ThrowIfNotStarted();
+            ThrowIfStopped();
+            state = State.Stopped;
             if (vm is not null)
             {
+                RemoveEditorSystems(vm);
                 program?.Finish(vm);
 #if UNITY_EDITOR
                 unityEditorType?.GetMethod("Stop", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
@@ -205,6 +226,48 @@ namespace UnityLibrary
                 vm.Dispose();
                 program = null;
             }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfNotStarted()
+        {
+            if (state != State.Started)
+            {
+                throw new Exception("UnityApplication has not started");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfStarted()
+        {
+            if (state == State.Started)
+            {
+                throw new Exception("UnityApplication was already started");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfNotStopped()
+        {
+            if (state != State.Stopped)
+            {
+                throw new Exception("UnityApplication has not stopped");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ThrowIfStopped()
+        {
+            if (state == State.Stopped)
+            {
+                throw new Exception("UnityApplication was already stopped");
+            }
+        }
+
+        public enum State : byte
+        {
+            Started,
+            Stopped
         }
     }
 }
