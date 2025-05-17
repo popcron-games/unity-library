@@ -5,7 +5,6 @@ using System.Text;
 using System.Runtime.CompilerServices;
 using System.Reflection;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -15,26 +14,24 @@ using UnityEditor;
 namespace UnityLibrary
 {
     /// <summary>
-    /// Manages a singleton <see cref="VirtualMachine"/> instance initialized with an <see cref="VirtualMachine.IState"/>
-    /// (assigned from <see cref="UnityApplicationSettings"/> in your project assets).
-    /// Running in the lifetime of the existence of the executing Unity program (either editor or player).
+    /// Manages a singleton <see cref="VirtualMachine"/> instance and a <see cref="IProgram"/>
+    /// initializated with it.
     /// </summary>
+    [DefaultExecutionOrder(int.MinValue)]
 #if UNITY_EDITOR
-    [InitializeOnLoad, DefaultExecutionOrder(int.MinValue + 10)]
+    [InitializeOnLoad]
 #endif
     public static class UnityApplication
     {
-        internal const string PlayFromStartKey = "playingFromStart";
-
 #if UNITY_EDITOR
+        internal const string PlayFromStartKey = "playingFromStart";
         private const string UnityEditorApplication = "UnityLibrary.Editor.EditorSystems, UnityLibrary.Editor";
         private static readonly Type? unityEditorType = Type.GetType(UnityEditorApplication);
 #endif
-
-        private static VirtualMachine? vm;
+        private static readonly VirtualMachine vm = new();
         private static IProgram? program;
         private static Type? editorSystemsType;
-        private static State state = State.Stopped;
+        internal static bool started;
 
         /// <summary>
         /// Always <see cref="true"/> in builds.
@@ -62,9 +59,10 @@ namespace UnityLibrary
         {
             get
             {
-                if (vm is null)
+                if (!started)
                 {
-                    throw new("Virtual Machine not available");
+                    started = true;
+                    Start(UnityApplicationSettings.Singleton);
                 }
 
                 return vm;
@@ -98,13 +96,8 @@ namespace UnityLibrary
         }
 #endif
 
-        internal static void Start()
+        internal static void Start(UnityApplicationSettings settings)
         {
-            ThrowIfNotStopped();
-            ThrowIfStarted();
-            state = State.Started;
-            UnityApplicationSettings settings = UnityApplicationSettings.Singleton;
-
 #if UNITY_EDITOR
             //fail if state type is missing, this is needed
             if (settings.ProgramType is null)
@@ -136,7 +129,7 @@ namespace UnityLibrary
                 throw new(errorBuilder.ToString());
             }
 
-            //fail if editor systems cant be found, (extra for editor)
+            //fail if library editor systems cant be found, should never fail
             if (unityEditorType is null)
             {
                 throw new($"Expected editor systems type `{UnityEditorApplication}` not found");
@@ -149,7 +142,6 @@ namespace UnityLibrary
             }
 #endif
 
-            vm = new();
 #if UNITY_EDITOR
             unityEditorType.GetMethod("Start", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
 #endif
@@ -205,69 +197,25 @@ namespace UnityLibrary
 #endif
         }
 
-        internal static void Reinitialize()
+        internal static void Reinitialize(UnityApplicationSettings settings)
         {
-            Stop();
-            Start();
+            if (started)
+            {
+                started = false;
+                Stop();
+            }
+
+            Start(settings);
         }
 
         internal static void Stop()
         {
-            ThrowIfNotStarted();
-            ThrowIfStopped();
-            state = State.Stopped;
-            if (vm is not null)
-            {
-                RemoveEditorSystems(vm);
-                program?.Finish(vm);
+            RemoveEditorSystems(vm);
+            program?.Finish(vm);
 #if UNITY_EDITOR
-                unityEditorType?.GetMethod("Stop", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
+            unityEditorType?.GetMethod("Stop", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
 #endif
-                vm.Dispose();
-                program = null;
-            }
-        }
-
-        [Conditional("DEBUG")]
-        private static void ThrowIfNotStarted()
-        {
-            if (state != State.Started)
-            {
-                throw new Exception("UnityApplication has not started");
-            }
-        }
-
-        [Conditional("DEBUG")]
-        private static void ThrowIfStarted()
-        {
-            if (state == State.Started)
-            {
-                throw new Exception("UnityApplication was already started");
-            }
-        }
-
-        [Conditional("DEBUG")]
-        private static void ThrowIfNotStopped()
-        {
-            if (state != State.Stopped)
-            {
-                throw new Exception("UnityApplication has not stopped");
-            }
-        }
-
-        [Conditional("DEBUG")]
-        private static void ThrowIfStopped()
-        {
-            if (state == State.Stopped)
-            {
-                throw new Exception("UnityApplication was already stopped");
-            }
-        }
-
-        public enum State : byte
-        {
-            Started,
-            Stopped
+            program = null;
         }
     }
 }

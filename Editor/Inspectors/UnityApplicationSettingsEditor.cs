@@ -118,7 +118,7 @@ namespace UnityLibrary.Editor
                     {
                         EditorUtility.SetDirty(settings);
                         AssetDatabase.SaveAssetIfDirty(settings);
-                        UnityApplication.Reinitialize();
+                        UnityApplication.Reinitialize(settings);
                     }
                 }
             }
@@ -148,7 +148,7 @@ namespace UnityLibrary.Editor
                     {
                         EditorUtility.SetDirty(settings);
                         AssetDatabase.SaveAssetIfDirty(settings);
-                        UnityApplication.Reinitialize();
+                        UnityApplication.Reinitialize(settings);
                     }
                 }
             }

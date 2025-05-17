@@ -22,6 +22,7 @@ namespace UnityLibrary
     {
         public const string ProgramTypeName = nameof(programTypeName);
         public const string EditorSystemsTypeName = nameof(editorSystemsTypeName);
+        private const string PathKey = nameof(UnityApplicationSettings) + ".path";
 
         private static UnityApplicationSettings? singleton;
 
@@ -91,7 +92,11 @@ namespace UnityLibrary
             if (singleton == null)
             {
                 singleton = this;
-                UnityApplication.Start();
+                if (!UnityApplication.started)
+                {
+                    UnityApplication.started = true;
+                    UnityApplication.Start(this);
+                }
             }
         }
 
@@ -99,7 +104,15 @@ namespace UnityLibrary
         {
             if (singleton == this)
             {
-                UnityApplication.Stop();
+                if (UnityApplication.started)
+                {
+                    UnityApplication.started = false;
+                    UnityApplication.Stop();
+                }
+
+#if UNITY_EDITOR
+                EditorPrefs.SetString(PathKey, AssetDatabase.GetAssetPath(this));
+#endif
                 singleton = null;
             }
         }
@@ -136,6 +149,21 @@ namespace UnityLibrary
 #if UNITY_EDITOR
         private static UnityApplicationSettings GetOrCreateInstance()
         {
+            if (EditorPrefs.HasKey(PathKey))
+            {
+                string path = EditorPrefs.GetString(PathKey);
+                EditorPrefs.DeleteKey(PathKey);
+                UnityApplicationSettings existingSettings = AssetDatabase.LoadAssetAtPath<UnityApplicationSettings>(path);
+                if (existingSettings != null)
+                {
+                    return existingSettings;
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError($"UnityApplicationSettings asset not found at {path}, creating a new one");
+                }
+            }
+
             List<Object> preloadedAssets = PlayerSettings.GetPreloadedAssets().ToList();
             foreach (Object obj in preloadedAssets)
             {
