@@ -18,6 +18,7 @@ public static class UnitySceneExtensions
             stack.Push(gameObject.transform);
         }
 
+        all.Clear();
         while (stack.Count > 0)
         {
             Transform transform = stack.Pop();
