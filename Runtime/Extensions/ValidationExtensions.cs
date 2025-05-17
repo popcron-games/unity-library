@@ -31,6 +31,31 @@ public static class ValidationExtensions
             }
         }
     }
+    /// <summary>
+    /// Performs validation testing on the listener.
+    /// </summary>
+    public static void TryValidate(this IListener<Validate>? validator, VirtualMachine vm, ref Validate e)
+    {
+        if (validator is not null)
+        {
+            try
+            {
+                validator.Receive(vm, ref e);
+            }
+            catch (Exception ex)
+            {
+                e.failed = true;
+                if (validator is UnityEngine.Object context)
+                {
+                    Debug.LogException(ex, context);
+                }
+                else
+                {
+                    Debug.LogException(ex);
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Performs validation testing on the listener.

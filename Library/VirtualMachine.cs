@@ -202,11 +202,14 @@ namespace UnityLibrary
                 listener.Receive(this, ref ev);
             }
 
-            IReadOnlyList<IAnyListener> broadcastListeners = systemRegistry.GetAllThatAre<IAnyListener>();
-            for (int i = 0; i < broadcastListeners.Count; i++)
+            if (ev is not Validate)
             {
-                IAnyListener listener = broadcastListeners[i];
-                listener.Receive(this, ref ev);
+                IReadOnlyList<IAnyListener> broadcastListeners = systemRegistry.GetAllThatAre<IAnyListener>();
+                for (int i = 0; i < broadcastListeners.Count; i++)
+                {
+                    IAnyListener listener = broadcastListeners[i];
+                    listener.Receive(this, ref ev);
+                }
             }
         }
 
