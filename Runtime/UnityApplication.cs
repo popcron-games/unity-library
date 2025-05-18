@@ -17,7 +17,7 @@ namespace UnityLibrary
     /// Manages a singleton <see cref="VirtualMachine"/> instance and a <see cref="IProgram"/>
     /// initializated with it.
     /// </summary>
-    [DefaultExecutionOrder(int.MinValue)]
+    [DefaultExecutionOrder(int.MaxValue)]
 #if UNITY_EDITOR
     [InitializeOnLoad]
 #endif

@@ -84,12 +84,12 @@ namespace UnityLibrary
                 }
             }
 
-            onRegistered?.Invoke(value);
+            OnRegistered(value);
         }
 
         private void Remove(object value)
         {
-            onUnregistered?.Invoke(value);
+            OnUnregistered(value);
             Type type = value.GetType();
             if (typeToAssignableTypes.TryGetValue(type, out _))
             {
@@ -107,6 +107,16 @@ namespace UnityLibrary
             }
 
             objects.Remove(value);
+        }
+
+        protected virtual void OnRegistered(object value)
+        {
+            onRegistered?.Invoke(value);
+        }
+
+        protected virtual void OnUnregistered(object value)
+        {
+            onUnregistered?.Invoke(value);
         }
 
         public bool Contains(object value)

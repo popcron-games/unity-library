@@ -9,7 +9,7 @@ using UnityLibrary.Systems;
 public abstract class CustomMonoBehaviour : MonoBehaviour
 {
     public static VirtualMachine VM => UnityApplication.VM;
-    public static UnityObjects UnityObjects => VM.GetSystem<UnityObjects>();
+    public static UnityObjects UnityObjects => VM.GetFirstSystem<UnityObjects>();
 
     private CancellationTokenSource? enabledLifetime = null;
     private UnityObjects? unityObjects = null;

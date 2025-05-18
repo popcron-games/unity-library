@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityLibrary.Events;
@@ -7,8 +8,8 @@ using Object = UnityEngine.Object;
 namespace UnityLibrary.Systems
 {
     /// <summary>
-    /// Contains access to all components that inherit from <see cref="CustomMonoBehaviour"/>,
-    /// and dispatches events to those components when they implement <see cref="IListener{T}"/>
+    /// Contains access to all components that registered themselves, and propagates
+    /// events to those components when they implement <see cref="IListener{T}"/>.
     /// </summary>
     public class UnityObjects : Registry, IAnyListener, IListener<Validate>
     {
@@ -24,13 +25,29 @@ namespace UnityLibrary.Systems
                 }
                 catch (Exception ex)
                 {
-                    if (listener is Object unityObj)
+                    if (listener is Object context)
                     {
-                        Debug.LogException(ex, unityObj);
+                        Debug.LogException(ex, context);
                     }
                     else
                     {
                         Debug.LogException(ex);
+                    }
+                }
+            }
+
+            //propagate to scriptable objects 
+            foreach (ScriptableObject scriptableObject in SingletonScriptableObjects.scriptableObjects)
+            {
+                if (scriptableObject is IListener<T> listener)
+                {
+                    try
+                    {
+                        listener.Receive(vm, ref ev);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogException(ex, scriptableObject);
                     }
                 }
             }
@@ -43,6 +60,15 @@ namespace UnityLibrary.Systems
             {
                 IListener<Validate> listener = list[i];
                 listener.TryValidate(vm, ref e);
+            }
+
+            //propagate to scriptable objects
+            foreach (ScriptableObject scriptableObject in SingletonScriptableObjects.scriptableObjects)
+            {
+                if (scriptableObject is IListener<Validate> listener)
+                {
+                    listener.TryValidate(vm, ref e);
+                }
             }
         }
     }

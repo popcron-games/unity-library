@@ -17,7 +17,7 @@ namespace UnityLibrary
     /// <summary>
     /// Singleton asset accessible from anywhere, containing assets needed for the application to run.
     /// </summary>
-    [ExecuteAlways, DefaultExecutionOrder(int.MinValue)]
+    [ExecuteAlways, DefaultExecutionOrder(int.MaxValue)]
     public sealed class UnityApplicationSettings : ScriptableObject, IListener<Validate>
     {
         public const string ProgramTypeName = nameof(programTypeName);

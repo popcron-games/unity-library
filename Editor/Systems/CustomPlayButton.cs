@@ -20,7 +20,7 @@ namespace UnityLibrary.Editor.Systems
         public CustomPlayButton(VirtualMachine vm)
         {
             this.vm = vm;
-            tester = vm.GetSystem<PlayValidationTester>();
+            tester = vm.GetFirstSystem<PlayValidationTester>();
             EditorApplication.playModeStateChanged += PlayModeStateChanged;
             ToolbarExtender.LeftToolbarGUI.Add(OnToolbarGUI);
         }

@@ -6,12 +6,13 @@ using UnityEngine.SceneManagement;
 public static class UnitySceneExtensions
 {
     private static readonly Stack<Transform> stack = new();
-    private static readonly List<Transform> all = new();
+    private static readonly List<GameObject> all = new();
 
     /// <summary>
     /// Retrieves all game objects in the scene, not just the root.
     /// </summary>
-    public static IEnumerable<GameObject> GetAllGameObjects(this Scene scene)
+    /// <returns>A singleton shared list of all game objects in reverse order.</returns>
+    public static IReadOnlyList<GameObject> GetAllGameObjects(this Scene scene)
     {
         foreach (GameObject gameObject in scene.GetRootGameObjects())
         {
@@ -22,17 +23,38 @@ public static class UnitySceneExtensions
         while (stack.Count > 0)
         {
             Transform transform = stack.Pop();
-            all.Add(transform);
+            all.Add(transform.gameObject);
             foreach (Transform child in transform)
             {
                 stack.Push(child);
             }
         }
 
-        List<GameObject> gameObjects = new();
-        for (int i = all.Count - 1; i >= 0; i--)
+        return all;
+    }
+
+    /// <summary>
+    /// Fills the given <paramref name="gameObjects"/> list with all game objects in
+    /// the scene, not just the root.
+    /// <para>
+    /// The order is reverse of the hierarchy.
+    /// </para>
+    /// </summary>
+    public static void GetAllGameObjects(this Scene scene, List<GameObject> gameObjects)
+    {
+        foreach (GameObject gameObject in scene.GetRootGameObjects())
         {
-            yield return all[i].gameObject;
+            stack.Push(gameObject.transform);
+        }
+
+        while (stack.Count > 0)
+        {
+            Transform transform = stack.Pop();
+            gameObjects.Add(transform.gameObject);
+            foreach (Transform child in transform)
+            {
+                stack.Push(child);
+            }
         }
     }
 }

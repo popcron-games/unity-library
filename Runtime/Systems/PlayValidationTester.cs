@@ -9,6 +9,7 @@ namespace UnityLibrary.Systems
 {
     public class PlayValidationTester
     {
+        private static readonly List<GameObject> gameObjects = new();
         private static readonly List<Component> components = new();
 
         private void CollectOpenSceneValidators(List<IListener<Validate>> listeners)
@@ -22,9 +23,11 @@ namespace UnityLibrary.Systems
 
         private void CollectValidators(Scene scene, List<IListener<Validate>> listeners)
         {
-            foreach (GameObject gameObject in scene.GetAllGameObjects())
+            gameObjects.Clear();
+            scene.GetAllGameObjects(gameObjects);
+            for (int i = 0; i < gameObjects.Count; i++)
             {
-                CollectValidators(gameObject, listeners);
+                CollectValidators(gameObjects[i], listeners);
             }
         }
 
@@ -32,17 +35,18 @@ namespace UnityLibrary.Systems
         {
             components.Clear();
             gameObject.GetComponents(components);
-            foreach (Component component in components)
+            for (int i = 0; i < components.Count; i++)
             {
-                CollectValidators(component, listeners);
+                CollectValidators(components[i], listeners);
             }
         }
 
         private void CollectValidators(VirtualMachine vm, List<IListener<Validate>> listeners)
         {
-            foreach (object system in vm.Systems)
+            IReadOnlyList<object> systems = vm.Systems;
+            for (int i = 0; i < systems.Count; i++)
             {
-                CollectValidators(system, listeners);
+                CollectValidators(systems[i], listeners);
             }
         }
 
@@ -65,12 +69,12 @@ namespace UnityLibrary.Systems
             }
         }
 
-        private bool Test(VirtualMachine vm, IEnumerable<IListener<Validate>> validators)
+        private bool Test(VirtualMachine vm, IReadOnlyList<IListener<Validate>> validators)
         {
             Validate e = default;
-            foreach (IListener<Validate> validator in validators)
+            for (int i = 0; i < validators.Count; i++)
             {
-                validator.TryValidate(vm, ref e);
+                validators[i].TryValidate(vm, ref e);
             }
 
             return !e.failed;

@@ -29,8 +29,7 @@ namespace UnityLibrary
 
         public bool ContainsSystem(Type type)
         {
-            IReadOnlyCollection<object> systems = systemRegistry.GetAllThatAre(type);
-            return systems.Count > 0;
+            return systemRegistry.GetAllThatAre(type).Count > 0;
         }
 
         public bool ContainsSystem<T>()
@@ -38,22 +37,16 @@ namespace UnityLibrary
             return ContainsSystem(typeof(T));
         }
 
-        public object GetSystem(Type type)
+        public object GetFirstSystem(Type systemType)
         {
-            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(type);
-            if (systems.Count > 0)
-            {
-                return systems[0];
-            }
-            else
-            {
-                throw new InvalidOperationException($"System of type {type} not found in virtual machine");
-            }
+            ThrowIfSystemIsMissing(systemType);
+            return systemRegistry.GetAllThatAre(systemType)[0];
         }
 
-        public T GetSystem<T>()
+        public T GetFirstSystem<T>()
         {
-            return (T)GetSystem(typeof(T));
+            ThrowIfSystemIsMissing(typeof(T));
+            return systemRegistry.GetAllThatAre<T>()[0];
         }
 
         public IReadOnlyCollection<object> GetSystemsThatAre(Type type)
@@ -73,19 +66,19 @@ namespace UnityLibrary
             Broadcast(new SystemAdded(this, type));
         }
 
-        public object RemoveSystem(Type type)
+        public object RemoveSystem(Type systemType)
         {
-            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(type);
+            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(systemType);
             if (systems.Count > 0)
             {
                 object system = systems[0];
-                Broadcast(new SystemRemoved(this, type));
+                Broadcast(new SystemRemoved(this, systemType));
                 systemRegistry.Unregister(system);
                 return system;
             }
             else
             {
-                throw new InvalidOperationException($"System of type {type} not found to remove in virtual machine");
+                throw new InvalidOperationException($"System of type {systemType} not found to remove in virtual machine");
             }
         }
 
@@ -224,6 +217,15 @@ namespace UnityLibrary
             if (disposed)
             {
                 throw new ObjectDisposedException("Virtual machine is disposed");
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private void ThrowIfSystemIsMissing(Type systemType)
+        {
+            if (!ContainsSystem(systemType))
+            {
+                throw new InvalidOperationException($"System of type {systemType} not found in virtual machine");
             }
         }
     }

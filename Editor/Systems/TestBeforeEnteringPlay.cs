@@ -25,7 +25,7 @@ namespace UnityLibrary.Editor.Systems
         {
             if (change == PlayModeStateChange.ExitingEditMode)
             {
-                PlayValidationTester tester = vm.GetSystem<PlayValidationTester>();
+                PlayValidationTester tester = vm.GetFirstSystem<PlayValidationTester>();
                 if (!tester.TestOpenedScenes(vm) && !UnityApplication.IsUnityPlayer)
                 {
                     EditorApplication.isPlaying = false;
