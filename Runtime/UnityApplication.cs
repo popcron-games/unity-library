@@ -29,7 +29,7 @@ namespace UnityLibrary
         private static readonly Type? unityEditorType = Type.GetType(UnityEditorApplication);
 #endif
         private static readonly VirtualMachine vm = new();
-        private static IProgram? program;
+        internal static IProgram? program;
         private static Type? editorSystemsType;
         internal static bool started;
 
@@ -62,7 +62,17 @@ namespace UnityLibrary
                 if (!started)
                 {
                     started = true;
-                    Start(UnityApplicationSettings.Singleton);
+#if UNITY_EDITOR
+                    UnityApplicationSettings? settings = UnityApplicationSettings.FindSingleton();
+                    if (settings == null)
+                    {
+                        throw new($"No {nameof(UnityApplicationSettings)} asset found in project, please create one");
+                    }
+#else
+                    settings = UnityApplicationSettings.Singleton;
+#endif
+
+                    Start(settings);
                 }
 
                 return vm;
@@ -71,35 +81,17 @@ namespace UnityLibrary
 
         static UnityApplication()
         {
-            //Start();
-#if UNITY_EDITOR
-            AppDomain.CurrentDomain.DomainUnload += (sender, args) =>
+            UnityApplicationSettings? settings = UnityApplicationSettings.FindSingleton();
+            if (settings == null)
             {
-                AppDomain domain = (AppDomain)sender;
-                if (domain.FriendlyName == "Unity Child Domain")
-                {
-                    //Stop();
-                }
-            };
-#endif
-        }
-
-#if !UNITY_EDITOR
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Initialize()
-        {
-            Application.quitting += () =>
-            {
-                Application.quitting -= OnQuitting;
-                //Stop();
+                Debug.LogError($"No {nameof(UnityApplicationSettings)} asset found in project, please create one");
             }
         }
-#endif
 
         internal static void Start(UnityApplicationSettings settings)
         {
 #if UNITY_EDITOR
-            //fail if state type is missing, this is needed
+            // fail if program type is missing, this is needed
             if (settings.ProgramType is null)
             {
                 List<Type> availableProgramTypes = new();
@@ -129,16 +121,16 @@ namespace UnityLibrary
                 throw new(errorBuilder.ToString());
             }
 
-            //fail if library editor systems cant be found, should never fail
+            // fail if library editor systems cant be found, should never fail
             if (unityEditorType is null)
             {
                 throw new($"Expected editor systems type `{UnityEditorApplication}` not found");
             }
 #else
-            //fail if state type is missing, this is needed
+            // fail if program type is missing, this is needed
             if (settings.ProgramType is null)
             {
-                throw new($"Program type in unity application settings asset is missing");
+                throw new($"Program type in {nameof(UnityApplicationSettings} asset is missing");
             }
 #endif
 
@@ -146,6 +138,11 @@ namespace UnityLibrary
             unityEditorType.GetMethod("Start", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
 #endif
             program = (IProgram)Activator.CreateInstance(settings.ProgramType);
+            if (settings.AddBuiltInSystems)
+            {
+                vm.AddSystem(new UnityLibrarySystems(vm));
+            }
+
             program.Start(vm);
             editorSystemsType = AddEditorSystems(vm, settings);
         }
@@ -215,6 +212,11 @@ namespace UnityLibrary
 #if UNITY_EDITOR
             unityEditorType?.GetMethod("Stop", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
 #endif
+            if (vm.ContainsSystem<UnityLibrarySystems>())
+            {
+                vm.RemoveSystem<UnityLibrarySystems>().Dispose();
+            }
+
             program = null;
         }
     }

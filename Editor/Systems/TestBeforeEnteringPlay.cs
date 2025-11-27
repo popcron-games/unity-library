@@ -1,22 +1,18 @@
 ﻿#nullable enable
-using System;
 using UnityEditor;
 using UnityEngine;
 using UnityLibrary.Systems;
 
 namespace UnityLibrary.Editor.Systems
 {
-    public class TestBeforeEnteringPlay : IDisposable
+    public class TestBeforeEnteringPlay : SystemBase
     {
-        private readonly VirtualMachine vm;
-
-        public TestBeforeEnteringPlay(VirtualMachine vm)
+        public TestBeforeEnteringPlay(VirtualMachine vm) : base(vm)
         {
-            this.vm = vm;
             EditorApplication.playModeStateChanged += Changed;
         }
 
-        public void Dispose()
+        public override void Dispose()
         {
             EditorApplication.playModeStateChanged -= Changed;
         }
@@ -25,18 +21,32 @@ namespace UnityLibrary.Editor.Systems
         {
             if (change == PlayModeStateChange.ExitingEditMode)
             {
-                PlayValidationTester tester = vm.GetFirstSystem<PlayValidationTester>();
-                if (!tester.TestOpenedScenes(vm) && !UnityApplication.IsUnityPlayer)
+                if (!PlayValidationTester.ValidateComponents(vm) && !UnityApplication.IsUnityPlayer)
                 {
-                    EditorApplication.isPlaying = false;
-                    Debug.LogError("Unable to enter play mode due to errors.");
+                    EditorApplication.ExitPlaymode();
+                    EditorApplication.delayCall += () => RepaintAllViews();
+                    Debug.LogError("Unable to enter play mode due to errors");
                 }
-                else if (!tester.TestStarting(vm))
+                else if (!PlayValidationTester.ValidateStarting(vm))
                 {
-                    EditorApplication.isPlaying = false;
-                    Debug.LogError("Unable to enter play mode due to errors.");
+                    EditorApplication.ExitPlaymode();
+                    EditorApplication.delayCall += () => RepaintAllViews();
+                    Debug.LogError("Unable to enter play mode due to errors");
                 }
             }
+        }
+
+        private static void RepaintAllViews()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                foreach (EditorWindow window in Resources.FindObjectsOfTypeAll<EditorWindow>())
+                {
+                    window.Repaint();
+                }
+
+                UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+            };
         }
     }
 }

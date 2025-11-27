@@ -27,54 +27,83 @@ namespace UnityLibrary
             disposed = true;
         }
 
+        /// <summary>
+        /// Checks if a system with the given <paramref name="type"/> has been added.
+        /// </summary>
         public bool ContainsSystem(Type type)
         {
-            return systemRegistry.GetAllThatAre(type).Count > 0;
+            return systemRegistry.Contains(type);
         }
 
+        /// <summary>
+        /// Checks if a system of type <typeparamref name="T"/> has been added.
+        /// </summary>
         public bool ContainsSystem<T>()
         {
             return ContainsSystem(typeof(T));
         }
 
+        /// <summary>
+        /// Retrieves the first system of the given <paramref name="systemType"/>.
+        /// <para></para>
+        /// In debug mode, will throw an <see cref="InvalidOperationException"/> if no such system has been added.
+        /// </summary>
         public object GetFirstSystem(Type systemType)
         {
             ThrowIfSystemIsMissing(systemType);
-            return systemRegistry.GetAllThatAre(systemType)[0];
+            return systemRegistry.GetFirst(systemType);
         }
 
-        public T GetFirstSystem<T>()
+        /// <summary>
+        /// Retrieves the first system of type <typeparamref name="T"/>.
+        /// <para></para>
+        /// In debug mode, will throw an <see cref="InvalidOperationException"/> if no such system has been added.
+        /// </summary>
+        public T GetFirstSystem<T>() where T : notnull
         {
             ThrowIfSystemIsMissing(typeof(T));
-            return systemRegistry.GetAllThatAre<T>()[0];
+            return systemRegistry.GetFirst<T>();
         }
 
-        public IReadOnlyCollection<object> GetSystemsThatAre(Type type)
+        /// <summary>
+        /// Retrieves all systems of the given <paramref name="type"/>.
+        /// </summary>
+        public IReadOnlyList<object> GetSystemsThatAre(Type type)
         {
             return systemRegistry.GetAllThatAre(type);
         }
 
+        /// <summary>
+        /// Retrieves all systems of type <typeparamref name="T"/>.
+        /// </summary>
         public IReadOnlyList<T> GetSystemsThatAre<T>()
         {
             return systemRegistry.GetAllThatAre<T>();
         }
 
+        /// <summary>
+        /// Adds the given <paramref name="system"/> to the virtual machine.
+        /// </summary>
         public void AddSystem(object system)
         {
             systemRegistry.Register(system);
-            Type type = system.GetType();
-            Broadcast(new SystemAdded(this, type));
+            Broadcast(new SystemAdded(this, system.GetType()));
         }
 
+        /// <summary>
+        /// Removes the first system of the given <paramref name="systemType"/> from the virtual machine.
+        /// <para></para>
+        /// Returns the removed system.
+        /// <para></para>
+        /// Will throw an <see cref="InvalidOperationException"/> if no such system has been added.
+        /// </summary>
         public object RemoveSystem(Type systemType)
         {
-            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(systemType);
-            if (systems.Count > 0)
+            if (systemRegistry.TryGetFirst(systemType, out object? removedSystem))
             {
-                object system = systems[0];
                 Broadcast(new SystemRemoved(this, systemType));
-                systemRegistry.Unregister(system);
-                return system;
+                systemRegistry.Unregister(removedSystem);
+                return removedSystem;
             }
             else
             {
@@ -82,15 +111,20 @@ namespace UnityLibrary
             }
         }
 
+        /// <summary>
+        /// Removes the first system of type <typeparamref name="T"/> from the virtual machine.
+        /// <para></para>
+        /// Returns the removed system.
+        /// <para></para>
+        /// Will throw an <see cref="InvalidOperationException"/> if no such system has been added.
+        /// </summary>
         public T RemoveSystem<T>() where T : notnull
         {
-            IReadOnlyList<T> systems = systemRegistry.GetAllThatAre<T>();
-            if (systems.Count > 0)
+            if (systemRegistry.TryGetFirst(out T? removedSystem))
             {
-                T system = systems[0];
                 Broadcast(new SystemRemoved(this, typeof(T)));
-                systemRegistry.Unregister(system);
-                return system;
+                systemRegistry.Unregister(removedSystem);
+                return removedSystem;
             }
             else
             {
@@ -98,6 +132,11 @@ namespace UnityLibrary
             }
         }
 
+        /// <summary>
+        /// Removes the given <paramref name="system"/> instance from the virtual machine.
+        /// <para></para>
+        /// Will throw an <see cref="NullReferenceException"/> if the instance is not found.
+        /// </summary>
         public void RemoveSystem(object system)
         {
             foreach (object addedSystem in Systems)
@@ -110,105 +149,123 @@ namespace UnityLibrary
                 }
             }
 
-            throw new InvalidOperationException($"System instance {system} not found to remove in virtual machine");
+            throw new NullReferenceException($"System instance {system} not found to remove in virtual machine");
         }
 
-        public bool TryRemoveSystem<T>([NotNullWhen(true)] out T? system) where T : notnull
+        /// <summary>
+        /// Tries to remove the first system of type <typeparamref name="T"/> from the virtual machine,
+        /// and fills the <paramref name="removedSystem"/> out parameter.
+        /// <para></para>
+        /// Returns <see langword="true"/> if a system was found and removed, <see langword="false"/> otherwise.
+        /// </summary>
+        public bool TryRemoveSystem<T>([NotNullWhen(true)] out T? removedSystem) where T : notnull
         {
-            IReadOnlyList<T> systems = systemRegistry.GetAllThatAre<T>();
-            if (systems.Count > 0)
+            if (systemRegistry.TryGetFirst(out removedSystem))
             {
-                system = systems[0];
                 Broadcast(new SystemRemoved(this, typeof(T)));
-                systemRegistry.TryUnregister(system);
+                systemRegistry.Unregister(removedSystem);
                 return true;
             }
             else
             {
-                system = default;
-                return false;
-            }
-        }
-
-        public bool TryRemoveSystem<T>() where T : notnull
-        {
-            return TryRemoveSystem<T>(out _);
-        }
-
-        public bool TryRemoveSystem(Type systemType, [NotNullWhen(true)] out object? system)
-        {
-            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(systemType);
-            if (systems.Count > 0)
-            {
-                system = systems[0];
-                Broadcast(new SystemRemoved(this, systemType));
-                systemRegistry.TryUnregister(system);
-                return true;
-            }
-            else
-            {
-                system = default;
-                return false;
-            }
-        }
-
-        public bool TryGetSystem(Type systemType, [NotNullWhen(true)] out object? system)
-        {
-            IReadOnlyList<object> systems = systemRegistry.GetAllThatAre(systemType);
-            if (systems.Count > 0)
-            {
-                system = systems[0];
-                return true;
-            }
-            else
-            {
-                system = default;
-                return false;
-            }
-        }
-
-        public bool TryGetSystem<T>([NotNullWhen(true)] out T? system) where T : notnull
-        {
-            IReadOnlyList<T> systems = systemRegistry.GetAllThatAre<T>();
-            if (systems.Count > 0)
-            {
-                system = systems[0];
-                return true;
-            }
-            else
-            {
-                system = default;
+                removedSystem = default;
                 return false;
             }
         }
 
         /// <summary>
-        /// Broadcasts this event to all <see cref="IListener{T}"/> of it,
-        /// as well as all <see cref="IAnyListener"/> instances.
+        /// Tries to remove the first system of type <typeparamref name="T"/> from the virtual machine.
+        /// <para></para>
+        /// Returns <see langword="true"/> if a system was found and removed, <see langword="false"/> otherwise.
         /// </summary>
-        public void Broadcast<T>(ref T ev) where T : notnull
+        public bool TryRemoveSystem<T>() where T : notnull
+        {
+            return TryRemoveSystem<T>(out _);
+        }
+
+        /// <summary>
+        /// Tries to remove the first system of the given <paramref name="systemType"/> from the virtual machine,
+        /// and fills the <paramref name="removedSystem"/> out parameter.
+        /// <para></para>
+        /// Returns <see langword="true"/> if a system was found and removed, <see langword="false"/> otherwise.
+        /// </summary>
+        public bool TryRemoveSystem(Type systemType, [NotNullWhen(true)] out object? removedSystem)
+        {
+            if (systemRegistry.TryGetFirst(systemType, out removedSystem))
+            {
+                Broadcast(new SystemRemoved(this, systemType));
+                systemRegistry.Unregister(removedSystem);
+                return true;
+            }
+            else
+            {
+                removedSystem = default;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Tries to get the first system of the given <paramref name="systemType"/>.
+        /// <para></para>
+        /// Returns <see langword="true"/> if a system was found, <see langword="false"/> otherwise.
+        /// </summary>
+        public bool TryGetSystem(Type systemType, [NotNullWhen(true)] out object? foundSystem)
+        {
+            return systemRegistry.TryGetFirst(systemType, out foundSystem);
+        }
+
+        /// <summary>
+        /// Tries to get the first system of type <typeparamref name="T"/>.
+        /// <para></para>
+        /// Returns <see langword="true"/> if a system was found, <see langword="false"/> otherwise.
+        /// </summary>
+        public bool TryGetSystem<T>([NotNullWhen(true)] out T? foundSystem) where T : notnull
+        {
+            return systemRegistry.TryGetFirst(out foundSystem);
+        }
+
+        /// <summary>
+        /// Broadcasts the given <paramref name="e"/> event as a reference to
+        /// all <see cref="IListener{T}"/> systems, as well as all <see cref="IAnyListener"/> instances.
+        /// </summary>
+        public void Broadcast<T>(ref T e) where T : notnull
         {
             IReadOnlyList<IListener<T>> listeners = systemRegistry.GetAllThatAre<IListener<T>>();
             for (int i = 0; i < listeners.Count; i++)
             {
-                IListener<T> listener = listeners[i];
-                listener.Receive(this, ref ev);
+                listeners[i].Receive(this, ref e);
             }
 
-            if (ev is not Validate)
+            if (e is not Validate)
             {
                 IReadOnlyList<IAnyListener> broadcastListeners = systemRegistry.GetAllThatAre<IAnyListener>();
                 for (int i = 0; i < broadcastListeners.Count; i++)
                 {
-                    IAnyListener listener = broadcastListeners[i];
-                    listener.Receive(this, ref ev);
+                    broadcastListeners[i].Receive(this, ref e);
                 }
             }
         }
 
-        public void Broadcast<T>(T ev) where T : notnull
+        /// <summary>
+        /// Broadcasts the given <paramref name="e"/> event to all <see cref="IListener{T}"/> systems,
+        /// as well as all <see cref="IAnyListener"/> instances.
+        /// </summary>
+        public void Broadcast<T>(T e) where T : notnull
         {
-            Broadcast(ref ev);
+            IReadOnlyList<IListener<T>> listeners = systemRegistry.GetAllThatAre<IListener<T>>();
+            for (int i = 0; i < listeners.Count; i++)
+            {
+                listeners[i].Receive(this, ref e);
+            }
+
+            if (e is not Validate)
+            {
+                IReadOnlyList<IAnyListener> broadcastListeners = systemRegistry.GetAllThatAre<IAnyListener>();
+                for (int i = 0; i < broadcastListeners.Count; i++)
+                {
+                    broadcastListeners[i].Receive(this, ref e);
+                }
+            }
         }
 
         [Conditional("DEBUG")]
@@ -225,7 +282,7 @@ namespace UnityLibrary
         {
             if (!ContainsSystem(systemType))
             {
-                throw new InvalidOperationException($"System of type {systemType} not found in virtual machine");
+                throw new InvalidOperationException($"System of type `{systemType}` has not been added to the virtual machine");
             }
         }
     }

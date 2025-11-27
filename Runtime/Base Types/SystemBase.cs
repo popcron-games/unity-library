@@ -3,6 +3,7 @@ using System;
 
 namespace UnityLibrary
 {
+    [Serializable]
     public abstract class SystemBase : IDisposable
     {
         public readonly VirtualMachine vm;

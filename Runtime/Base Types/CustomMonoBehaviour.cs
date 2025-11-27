@@ -1,7 +1,4 @@
 ﻿#nullable enable
-using System;
-using System.Diagnostics;
-using System.Threading;
 using UnityEngine;
 using UnityLibrary;
 using UnityLibrary.Systems;
@@ -9,56 +6,40 @@ using UnityLibrary.Systems;
 public abstract class CustomMonoBehaviour : MonoBehaviour
 {
     public static VirtualMachine VM => UnityApplication.VM;
-    public static UnityObjects UnityObjects => VM.GetFirstSystem<UnityObjects>();
 
-    private CancellationTokenSource? enabledLifetime = null;
-    private UnityObjects? unityObjects = null;
-
-    /// <summary>
-    /// Cancellation token thats raised when <see cref="OnDisable"/> is called.
-    /// </summary>
-    public CancellationToken disableCancellationToken
+    public static UnityObjects UnityObjects
     {
         get
         {
-            ThrowIfNotEnabledYet();
-            return enabledLifetime!.Token;
+            if (VM.TryGetSystem(out UnityObjects? unityObjects))
+            {
+                return unityObjects;
+            }
+            else
+            {
+                if (UnityApplicationSettings.Singleton.AddBuiltInSystems)
+                {
+                    throw new($"The {nameof(UnityLibrary.Systems.UnityObjects)} system is missing from the virtual machine, but was expected to be present");
+                }
+                else
+                {
+                    throw new($"The {nameof(UnityLibrary.Systems.UnityObjects)} system has not been added to the virtual machine");
+                }
+            }
         }
     }
 
+    private UnityObjects? unityObjects = null;
+
     protected virtual void OnEnable()
     {
-        ThrowIfAlreadyEnabled();
-        enabledLifetime = new();
         unityObjects = UnityObjects;
         unityObjects.Register(this);
     }
 
     protected virtual void OnDisable()
     {
-        ThrowIfNotEnabledYet();
         unityObjects?.Unregister(this);
         unityObjects = null;
-        enabledLifetime!.Cancel();
-        enabledLifetime!.Dispose();
-        enabledLifetime = null;
-    }
-
-    [Conditional("DEBUG")]
-    private void ThrowIfNotEnabledYet()
-    {
-        if (enabledLifetime is null)
-        {
-            throw new InvalidOperationException("Attempting to access a component that hasn't been enabled yet");
-        }
-    }
-
-    [Conditional("DEBUG")]
-    private void ThrowIfAlreadyEnabled()
-    {
-        if (enabledLifetime is not null)
-        {
-            throw new InvalidOperationException("Attempting to enable a component that's already enabled");
-        }
     }
 }

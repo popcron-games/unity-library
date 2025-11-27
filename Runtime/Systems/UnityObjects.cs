@@ -59,7 +59,7 @@ namespace UnityLibrary.Systems
             for (int i = 0; i < list.Count; i++)
             {
                 IListener<Validate> listener = list[i];
-                listener.TryValidate(vm, ref e);
+                listener.Validate(vm, ref e);
             }
 
             //propagate to scriptable objects
@@ -67,7 +67,7 @@ namespace UnityLibrary.Systems
             {
                 if (scriptableObject is IListener<Validate> listener)
                 {
-                    listener.TryValidate(vm, ref e);
+                    listener.Validate(vm, ref e);
                 }
             }
         }

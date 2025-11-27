@@ -1,7 +1,6 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.LowLevel;
 using UnityEngine.PlayerLoop;
@@ -16,15 +15,27 @@ namespace UnityLibrary.Systems
     [DefaultExecutionOrder(int.MinValue + 11)]
     public class UnityEventDispatcher : IDisposable
     {
+        public static readonly Type[] eventTypes;
+
         private static UnityEventDispatcher? instance;
         private static GameObject? guiObject;
 
-        private double lastUpdateTime;
-        private double lastFixedUpdateTime;
-        private double lastPreUpdateTime;
-        private double lastPostUpdateTime;
         private readonly VirtualMachine vm;
-        private readonly HashSet<HashSet<Action>> callbacks = new();
+        private readonly List<HashSet<Action>> callbacks = new();
+
+        static UnityEventDispatcher()
+        {
+            eventTypes = new Type[]
+            {
+                typeof(UpdateEvent),
+                typeof(FixedUpdateEvent),
+                typeof(PreUpdateEvent),
+                typeof(LateUpdateEvent),
+                typeof(GUIEvent),
+                typeof(ApplicationStarted),
+                typeof(ApplicationStopped)
+            };
+        }
 
         public UnityEventDispatcher(VirtualMachine vm)
         {
@@ -49,7 +60,7 @@ namespace UnityLibrary.Systems
                 }
                 else if (system.type == typeof(PostLateUpdate))
                 {
-                    InsertCallback(ref system, PostLateUpdateEvent);
+                    InsertCallback(ref system, PostLateUpdate);
                 }
             }
 
@@ -61,25 +72,20 @@ namespace UnityLibrary.Systems
                 vm.Broadcast(new ApplicationStopped());
                 UnityEngine.Object.DestroyImmediate(guiObject);
             };
-
-            lastUpdateTime = Time.timeAsDouble;
-            lastFixedUpdateTime = Time.fixedTimeAsDouble;
-            lastPreUpdateTime = Time.timeAsDouble;
-            lastPostUpdateTime = Time.timeAsDouble;
         }
 
         public void Dispose()
         {
             for (int i = 0; i < callbacks.Count; i++)
             {
-                HashSet<Action> callback = callbacks.ElementAt(i);
+                HashSet<Action> callback = callbacks[i];
                 callback.Clear();
             }
         }
 
         private void InsertCallback(ref PlayerLoopSystem system, Action function)
         {
-            List<PlayerLoopSystem> subsystemList = system.subSystemList.ToList();
+            List<PlayerLoopSystem> subsystemList = new(system.subSystemList);
             PlayerLoopSystem callbackSystem = default;
             callbackSystem.type = typeof(UnityEventDispatcher);
 
@@ -102,34 +108,22 @@ namespace UnityLibrary.Systems
 
         private void Update()
         {
-            double timeNow = Time.timeAsDouble;
-            double delta = timeNow - lastUpdateTime;
-            lastUpdateTime = timeNow;
-            vm.Broadcast(new UpdateEvent(delta));
+            vm.Broadcast(new UpdateEvent(Time.deltaTime));
         }
 
         private void FixedUpdate()
         {
-            double timeNow = Time.fixedTimeAsDouble;
-            double delta = timeNow - lastFixedUpdateTime;
-            lastFixedUpdateTime = timeNow;
-            vm.Broadcast(new FixedUpdateEvent(delta));
+            vm.Broadcast(new FixedUpdateEvent(Time.fixedDeltaTime));
         }
 
         private void PreUpdate()
         {
-            double timeNow = Time.timeAsDouble;
-            double delta = timeNow - lastPreUpdateTime;
-            lastPreUpdateTime = timeNow;
-            vm.Broadcast(new PreUpdateEvent(delta));
+            vm.Broadcast(new PreUpdateEvent(Time.deltaTime));
         }
 
-        private void PostLateUpdateEvent()
+        private void PostLateUpdate()
         {
-            double timeNow = Time.timeAsDouble;
-            double delta = timeNow - lastPostUpdateTime;
-            lastPostUpdateTime = timeNow;
-            vm.Broadcast(new LateUpdateEvent(delta));
+            vm.Broadcast(new LateUpdateEvent(Time.deltaTime));
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

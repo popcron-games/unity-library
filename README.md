@@ -1,39 +1,34 @@
 # Unity Library
 
-A framework for Unity.
+A simple framework for Unity.
 
 ### Programs and systems
 
 Programs are surface level constructs that are operated by a `VirtualMachine`.
-They, along with added systems are able to receive events with the `IListener<T>` interface:
+They, along with added systems, are able to receive events through the `IListener<T>` interface:
 ```cs
 [Preserve]
 public class GameProgram : IProgram
 {
     void IProgram.Start(VirtualMachine vm)
     {
-        vm.AddSystem(new UnityLibrarySystems(vm)); //explained further below
-        vm.AddSystem(new MySystem(vm));
+        vm.AddSystem(new GameSystem(vm));
     }
 
     void IProgram.Stop(VirtualMachine vm)
     {
-        vm.RemoveSystem<MySystem>().Dispose();
-        vm.RemoveSystem<UnityLibrarySystems>().Dispose();
+        vm.RemoveSystem<GameSystem>().Dispose();
     }
 }
 
-public class MySystem : IDisposable
+public class GameSystem : SystemBase
 {
-    private readonly VirtualMachine vm;
-
-    public MySystem(VirtualMachine vm)
+    public GameSystem(VirtualMachine vm) : base(vm)
     {
-        this.vm = vm;
         //equivalent to static constructor
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         //equivalent to static destructor
     }
@@ -44,84 +39,151 @@ public class MySystem : IDisposable
 
 ![Configuration asset](Docs/configAsset.png)
 
-All projects will have a single configuration asset that states what type is used as the program.
-As well as a reference to the initial assets. This asset is found procedurally at runtime:
+All projects will have a singleton configuration asset.
+It states what type is used as the program, and an optional editor only system.
 
 ### Playing from start
 
 ![Two play buttons](Docs/twoPlayButtons.png)
 
 The original play button in the Unity editor has the behaviour of playing from the current scene.
-In addition to that, there is a new play button that plays from the first scene in the build settings:
+In addition to that, there is a new play button that simulates playing from a build.
 
-### Validation
+### Receiving Unity engine events
+
+Events from the Unity engine can be received by all systems, and `CustomMonoBehaviour` instances:
+```cs
+public class MySystem : IListener<ApplicationStarted>, IListener<ApplicationFinished>
+{
+    void IListener<ApplicationStarted>.Receive(VirtualMachine vm, ref ApplicationStarted e)
+    {
+        Debug.Log("Playing started");
+    }
+
+    void IListener<UpdateEvent>.Receive(VirtualMachine vm, ref UpdateEvent e)
+    {
+        Debug.Log(e.delta);
+    }
+
+    void IListener<ApplicationFinished>.Receive(VirtualMachine vm, ref ApplicationFinished e)
+    {
+        Debug.Log("Playing stopped");
+    }
+}
+
+public class GameManager : CustomMonoBehaviour, IListener<UpdateEvent>
+{
+    void IListener<UpdateEvent>.Receive(VirtualMachine vm, ref UpdateEvent e)
+    {
+        Debug.Log(e.delta);
+    }
+}
+```
+
+### Enumerating through Unity components
+
+Components that inherit from `CustomMonoBehaviour` are all available through a `UnityObjects`
+system. This enables them to receive events through the `IListener<T>` interface, and be polled:
+```cs
+public class Pickup : CustomMonoBehaviour, IListener<Validate>, IListener<FixedUpdate>
+{
+    public static IReadOnlyList<Pickup> All => UnityObjects.GetAllThatAre<Pickup>();
+
+    [SerializeField]
+    private GameObject effectPrefab;
+
+    void IListener<Validate>.Receive(VirtualMachine vm, ref Validate e)
+    {
+        Assert.IsNotNull(effectPrefab, "Effect prefab is expected to be assigned");
+    }
+
+    void IListener<FixedUpdate>.Receive(VirtualMachine vm, ref FixedUpdate e)
+    {
+        // do some logic on fixed update
+    }
+}
+```
+
+This works by registering and unregistering the components in their `OnEnabled()` and `OnDisabled()`
+methods. And this can be done manually for your own Unity objects if it makes sense, such as scriptable objects:
+```cs
+public class UserManager : CustomMonoBehaviour
+{
+    private List<User> users = new();
+
+    public User Create()
+    {
+        User newUser = ScriptableObject.CreateInstance<User>();
+        users.Add(newUser);
+        newUser.Initialize(users.Count);
+        UnityObjects.Register(newUser); 
+        VM.Broadcast(new UserCreated(newUser));
+        return newUser;
+    }
+
+    public void Delete(User user)
+    {
+        VM.Broadcast(new UserDeleted(user));
+        UnityObjects.Unregister(user);
+        users.Remove(user);
+        ScriptableObject.Destroy(user);
+    }
+}
+
+public class User : ScriptableObject
+{
+    private int userId;
+
+    internal void Initialize(int userId)
+    {
+        this.userId = userId;
+    }
+}
+```
+
+### Validation before play
 
 ![Manual testing](Docs/manualTesting.png)
 
-Included is a `Validate` event, called when either of the two play buttons
-are used. If any of them report an error, then entering play is disallowed.
-By default, this runs for all systems:
+Included is a `Validate` event that is dispatched before entering play mode.
+And can be done so manually using the two main toolbar buttons.
+If any of the handlers report an error, then entering play is aborted:
 ```cs
 public class MySystem : IListener<Validate>
 {
     void IListener<Validate>.Receive(VirtualMachine vm, ref Validate e)
     {
-        Assert.Fail(); //this system will always prevent play
+        Assert.Fail(); // this will prevent entering play mode
     }
 }
 ```
 
-Validation can also be performed before attempting to play:
+Additionally, a component that modifies itself during this event will be marked
+dirty in the editor. So calling `EditorUtility.SetDirty()` isn't necessary:
+```cs
+public class Player : CustomMonoBehaviour, IListener<Validate>
+{
+    [SerializeField]
+    private Rigidbody2D rb;
+
+    void IListener<Validate>.Receive(VirtualMachine vm, ref Validate e)
+    {
+        rb = GetComponent<Rigidbody2D>();
+        Assert.IsNotNull(rb, "A Rigidbody2D component reference is missing");
+    }
+}
+```
 
 ### The `UnityLibrarySystems` type
 
-This included system is a collection of these:
-
-**`UnityEventDispatcher`**:
-
-Dispatches events from the Unity runtime to all systems:
-
-```cs
-public class MySystem : IListener<ApplicationStarted>, IListener<UpdateEvent>, IListener<ApplicationFinished>
-{
-    void IListener<ApplicationStarted>.Receive(VirtualMachine vm, ref ApplicationStarted ev)
-    {
-        Debug.Log("Playing started");
-    }
-
-    void IListener<UpdateEvent>.Receive(VirtualMachine vm, ref UpdateEvent ev)
-    {
-        Debug.Log(ev.delta);
-    }
-
-    void IListener<ApplicationFinished>.Receive(VirtualMachine vm, ref ApplicationFinished ev)
-    {
-        Debug.Log("Playing stopped");
-    }
-}
-```
-
-**`UnityObjects`**
-
-Stores all `MonoBehaviour` and `ScriptableObject` that were manually registered with it.
-
-```cs
-public class Pickup : CustomMonoBehaviour
-{
-    //exposes a list of all pickups in the scene
-    public static IReadOnlyList<Pickup> All => Registry.GetAllThatAre<Pickup>();
-}
-```
-
-### The `CustomMonoBehaviour` and `CustomScriptableObject`
-
-These two sub types register themselves with the `UnityObjects` system in `OnEnable()` 
-and unregister in `OnDisable()`. They are not a requirement.
+This is an included system that facilitates the mechanisms described above.
+Specifically, dispatching events to `CustomMonoBehaviour` components, and polling them.
+It's always automatically added to the virtual machine program, and can be disabled
+through a setting on the configuration asset.
 
 ### Contributing and design
 
-This Unity package provides the scaffolding needed to write code that may not
-need to depend on Unity. While providing high level tools that help make
-safer and reliable code.
+This package emerged from years of trying to write quality code. It is a boiled down
+version of what I rewrote countless times that helped me make safer, and reliable code.
 
-Contributions to this goal are welcome.
+Contributions that fit this are welcome.

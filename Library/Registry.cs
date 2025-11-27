@@ -29,18 +29,33 @@ namespace UnityLibrary
         public IReadOnlyList<object> All => objects;
         public int Count => objects.Count;
 
+        /// <summary>
+        /// Registers the given <paramref name="value"/>.
+        /// <para></para>
+        /// Will throw if the value has already been registered.
+        /// </summary>
         public void Register(object value)
         {
             ThrowIfRegistered(value);
             Add(value);
         }
 
+        /// <summary>
+        /// Unregisters the given <paramref name="value"/>.
+        /// <para></para>
+        /// Will throw if the value has not been registered.
+        /// </summary>
         public void Unregister(object value)
         {
             ThrowIfUnregistered(value);
             Remove(value);
         }
 
+        /// <summary>
+        /// Tries to register the given <paramref name="value"/>.
+        /// <para></para>
+        /// Returns <see langword="true"/> if the value was not already registered.
+        /// </summary>
         public bool TryRegister(object value)
         {
             if (!objects.Contains(value))
@@ -54,6 +69,11 @@ namespace UnityLibrary
             }
         }
 
+        /// <summary>
+        /// Tries to unregister the given <paramref name="value"/>.
+        /// <para></para>
+        /// Returns <see langword="true"/> if the value was registered.
+        /// </summary>
         public bool TryUnregister(object value)
         {
             if (objects.Contains(value))
@@ -119,14 +139,34 @@ namespace UnityLibrary
             onUnregistered?.Invoke(value);
         }
 
+        /// <summary>
+        /// Checks if the given <paramref name="value"/> is registered.
+        /// </summary>
         public bool Contains(object value)
         {
             return objects.Contains(value);
         }
 
         /// <summary>
+        /// Checks if there is at least one instance with the given <paramref name="type"/> registered.
+        /// </summary>
+        public bool Contains(Type type)
+        {
+            return assignableTypeToObjects.ContainsKey(type);
+        }
+
+        /// <summary>
+        /// Checks if there is at least one instance of type <typeparamref name="T"/> registered.
+        /// </summary>
+        public bool Contains<T>()
+        {
+            return assignableTypeToObjects.ContainsKey(typeof(T));
+        }
+
+        /// <summary>
         /// Returns all instances that are assignable to <typeparamref name="T"/>.
-        /// They either implement it if it's an interface, or subtype if a class.
+        /// <para></para>
+        /// They either implement it if it's an interface, or are a subtype if a class.
         /// </summary>
         public IReadOnlyList<T> GetAllThatAre<T>()
         {
@@ -142,8 +182,9 @@ namespace UnityLibrary
         }
 
         /// <summary>
-        /// Returns all instances that are assignable to <typeparamref name="A"/>.
-        /// They either implement it if it's an interface, or subtype if a class.
+        /// Returns all instances that are assignable to the given <paramref name="type"/>.
+        /// <para></para>
+        /// They either implement it if it's an interface, or are a subtype if a class.
         /// </summary>
         public IReadOnlyList<object> GetAllThatAre(Type type)
         {
@@ -160,33 +201,38 @@ namespace UnityLibrary
         /// <summary>
         /// Tries to retrieve the first instance of type <typeparamref name="T"/>.
         /// </summary>
-        public bool TryGetFirst<T>([NotNullWhen(true)] out T? value) where T : notnull
+        public bool TryGetFirst<T>([NotNullWhen(true)] out T? foundValue) where T : notnull
         {
             if (assignableTypeToObjects.TryGetValue(typeof(T), out ArrayList? objects))
             {
-                value = (T)objects[0];
+                foundValue = (T)objects[0];
                 return true;
             }
 
-            value = default;
+            foundValue = default;
             return false;
         }
 
         /// <summary>
         /// Tries to retrieve the first instance of the given <paramref name="type"/>.
         /// </summary>
-        public bool TryGetFirst(Type type, [NotNullWhen(true)] out object? value)
+        public bool TryGetFirst(Type type, [NotNullWhen(true)] out object? foundValue)
         {
             if (assignableTypeToObjects.TryGetValue(type, out ArrayList? objects))
             {
-                value = objects[0];
+                foundValue = objects[0];
                 return true;
             }
 
-            value = default;
+            foundValue = default;
             return false;
         }
 
+        /// <summary>
+        /// Retrieves the first instance of type <typeparamref name="T"/>.
+        /// <para></para>
+        /// Will throw if no such instance has been registered.
+        /// </summary>
         public T GetFirst<T>() where T : notnull
         {
             ThrowIfNone(typeof(T));
@@ -194,6 +240,11 @@ namespace UnityLibrary
             return (T)objects[0];
         }
 
+        /// <summary>
+        /// Retrieves the first instance of the given <paramref name="type"/>.
+        /// <para></para>
+        /// Will throw if no such instance has been registered.
+        /// </summary>
         public object GetFirst(Type type)
         {
             ThrowIfNone(type);

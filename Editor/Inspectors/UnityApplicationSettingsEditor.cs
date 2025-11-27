@@ -19,6 +19,8 @@ namespace UnityLibrary.Editor
         {
             List<string> displayOptions = new();
             List<Type> options = new();
+
+            // find all types derived from IProgram
             foreach (Type type in TypeCache.GetTypesDerivedFrom<IProgram>())
             {
                 if (type.IsPublic && !type.IsAbstract)
@@ -32,12 +34,26 @@ namespace UnityLibrary.Editor
             programTypeOptions = options.ToArray();
             displayOptions.Clear();
             options.Clear();
+
+            // find all types that can be a system
             foreach (Type type in TypeCache.GetTypesDerivedFrom<object>())
             {
                 if (type.IsPublic && !type.IsAbstract)
                 {
+                    if (typeof(UnityEngine.Object).IsAssignableFrom(type))
+                    {
+                        continue;
+                    }
+
+                    Assembly assembly = type.Assembly;
+                    string assemblyName = assembly.GetName().Name;
+                    if (assemblyName == "UnityLibrary.Editor" || assemblyName == "UnityLibrary.Runtime")
+                    {
+                        continue;
+                    }
+
                     bool referencesThisLibrary = false;
-                    foreach (AssemblyName? reference in type.Assembly.GetReferencedAssemblies())
+                    foreach (AssemblyName? reference in assembly.GetReferencedAssemblies())
                     {
                         if (reference.Name == "UnityLibrary")
                         {
@@ -58,29 +74,31 @@ namespace UnityLibrary.Editor
             editorSystemsTypeOptions = options.ToArray();
         }
 
-        private UnityApplicationSettings settings;
+        private UnityApplicationSettings? settings;
+        private SerializedProperty? programTypeName;
+        private SerializedProperty? editorSystemsTypeName;
+        private SerializedProperty? addBuiltInSystems;
         private bool editProgramTypeNameManually;
         private bool editEditorSystemsTypeNameManually;
-        private SerializedProperty programTypeName;
-        private SerializedProperty editorSystemsTypeName;
 
         private void OnEnable()
         {
             settings = (UnityApplicationSettings)target;
-            programTypeName = serializedObject.FindProperty(UnityApplicationSettings.ProgramTypeName);
-            editorSystemsTypeName = serializedObject.FindProperty(UnityApplicationSettings.EditorSystemsTypeName);
-        }
-
-        private Type? GetEditorSystemsType()
-        {
-            return Type.GetType(editorSystemsTypeName.stringValue);
+            programTypeName = serializedObject.FindProperty(UnityApplicationSettings.ProgramTypeNameKey);
+            editorSystemsTypeName = serializedObject.FindProperty(UnityApplicationSettings.EditorSystemsTypeNameKey);
+            addBuiltInSystems = serializedObject.FindProperty(UnityApplicationSettings.AddBuiltInSystemsKey);
         }
 
         public override void OnInspectorGUI()
         {
+            if (settings == null || programTypeName == null || editorSystemsTypeName == null || addBuiltInSystems == null)
+            {
+                return;
+            }
+
             serializedObject.Update();
 
-            //show error if program type is missing
+            // show error if program type is missing
             Type? programType = settings.ProgramType;
             TypeCache.TypeCollection types = TypeCache.GetTypesDerivedFrom<IProgram>();
             if (programType is null)
@@ -90,22 +108,22 @@ namespace UnityLibrary.Editor
                 {
                     if (types.Count == 0)
                     {
-                        EditorGUILayout.HelpBox($"No state type assigned. Please create a class that implements {typeof(IProgram).FullName} and assign it here.", MessageType.Error);
+                        EditorGUILayout.HelpBox($"No program type assigned. Please create a class that implements {typeof(IProgram).FullName} and assign it here", MessageType.Error);
                     }
                     else
                     {
-                        EditorGUILayout.HelpBox($"No state type assigned, but implementations have been found to choose from:", MessageType.Error);
+                        EditorGUILayout.HelpBox($"No program type assigned, but implementations have been found to choose from:", MessageType.Error);
                     }
                 }
                 else
                 {
-                    EditorGUILayout.HelpBox($"State type {typeName} not found, these implementations have been found to choose from:", MessageType.Error);
+                    EditorGUILayout.HelpBox($"Program type `{typeName}` not found, these implementations have been found to choose from:", MessageType.Error);
                 }
 
                 EditorGUILayout.Space();
             }
 
-            //show program type enum
+            // show program type enum
             EditorGUILayout.BeginHorizontal();
             if (!editProgramTypeNameManually)
             {
@@ -134,9 +152,9 @@ namespace UnityLibrary.Editor
 
             EditorGUILayout.EndHorizontal();
 
-            //show editor systems type field
+            // show editor systems type field
             EditorGUILayout.BeginHorizontal();
-            Type? editorSystemsType = GetEditorSystemsType();
+            Type? editorSystemsType = Type.GetType(editorSystemsTypeName.stringValue);
             if (!editEditorSystemsTypeNameManually)
             {
                 int selectedEditorSystemsType = Array.IndexOf(editorSystemsTypeOptions, editorSystemsType);
@@ -163,7 +181,38 @@ namespace UnityLibrary.Editor
             }
 
             EditorGUILayout.EndHorizontal();
+
+            // toggle for disabling built-in systems
+            bool boolValue = addBuiltInSystems.boolValue;
+            bool newBoolValue = EditorGUILayout.Toggle("Add Built-In Systems", boolValue);
+            if (boolValue != newBoolValue)
+            {
+                addBuiltInSystems.boolValue = newBoolValue;
+                VirtualMachine vm = UnityApplication.VM;
+                if (newBoolValue)
+                {
+                    vm.AddSystem(new UnityLibrarySystems(vm));
+                }
+                else
+                {
+                    vm.RemoveSystem<UnityLibrarySystems>().Dispose();
+                }
+            }
+
             serializedObject.ApplyModifiedProperties();
+        }
+
+        // custom create asset menu item
+        [MenuItem("Assets/Create/Unity Application Settings", priority = 200)]
+        private static void CreateUnityApplicationSettingsAsset()
+        {
+            UnityApplicationSettings? singleton = UnityApplicationSettings.FindSingleton();
+            if (singleton != null)
+            {
+                Debug.LogError($"A {nameof(UnityApplicationSettings)} asset already exists. There can only be one instance of this asset", singleton);
+            }
+
+            UnityApplicationSettings.singleton = UnityApplicationSettings.CreateSingleton();
         }
     }
 }

@@ -2,11 +2,9 @@
 {
     public readonly struct FixedUpdateEvent
     {
-        public readonly double delta;
+        public readonly float delta;
 
-        public readonly float DeltaAsFloat => (float)delta;
-
-        public FixedUpdateEvent(double delta)
+        public FixedUpdateEvent(float delta)
         {
             this.delta = delta;
         }

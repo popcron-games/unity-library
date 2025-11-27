@@ -1,12 +1,12 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Object = UnityEngine.Object;
 using UnityLibrary.Events;
 using System.Diagnostics;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -20,11 +20,12 @@ namespace UnityLibrary
     [ExecuteAlways, DefaultExecutionOrder(int.MaxValue)]
     public sealed class UnityApplicationSettings : ScriptableObject, IListener<Validate>
     {
-        public const string ProgramTypeName = nameof(programTypeName);
-        public const string EditorSystemsTypeName = nameof(editorSystemsTypeName);
         private const string PathKey = nameof(UnityApplicationSettings) + ".path";
+        internal const string EditorSystemsTypeNameKey = nameof(editorSystemsTypeName);
+        internal const string ProgramTypeNameKey = nameof(programTypeName);
+        internal const string AddBuiltInSystemsKey = nameof(addBuiltInSystems);
 
-        private static UnityApplicationSettings? singleton;
+        internal static UnityApplicationSettings? singleton;
 
         /// <summary>
         /// Static reference to the singleton asset.
@@ -36,7 +37,11 @@ namespace UnityLibrary
 #if UNITY_EDITOR
                 if (singleton == null)
                 {
-                    singleton = GetOrCreateInstance();
+                    singleton = FindSingleton();
+                    if (singleton == null)
+                    {
+                        throw new($"No {nameof(UnityApplicationSettings)} asset found in project, please create one");
+                    }
                 }
 #endif
                 ThrowIfSingletonIsMissing();
@@ -49,6 +54,9 @@ namespace UnityLibrary
 
         [SerializeField]
         private string? editorSystemsTypeName;
+
+        [SerializeField]
+        private bool addBuiltInSystems;
 
         /// <summary>
         /// The <see cref="IProgram"/> type to use when <see cref="UnityApplication"/> creates its virtual machine.
@@ -82,39 +90,38 @@ namespace UnityLibrary
             }
         }
 
+        /// <summary>
+        /// Controls whether the <see cref="UnityLibrarySystems"/> should be added by default.
+        /// </summary>
+        public bool AddBuiltInSystems => addBuiltInSystems;
+
         void IListener<Validate>.Receive(VirtualMachine vm, ref Validate e)
         {
-            Assert.IsNotNull(ProgramType, $"Program type is null, please set it in the unity application settings asset");
+            Assert.IsNotNull(ProgramType, $"Program type is null, please set it in the singleton {nameof(UnityApplicationSettings)} asset");
         }
 
         private void OnEnable()
         {
-            if (singleton == null)
+            singleton = this;
+            if (!UnityApplication.started)
             {
-                singleton = this;
-                if (!UnityApplication.started)
-                {
-                    UnityApplication.started = true;
-                    UnityApplication.Start(this);
-                }
+                UnityApplication.started = true;
+                UnityApplication.Start(this);
             }
         }
 
         private void OnDisable()
         {
-            if (singleton == this)
+            if (UnityApplication.started)
             {
-                if (UnityApplication.started)
-                {
-                    UnityApplication.started = false;
-                    UnityApplication.Stop();
-                }
+                UnityApplication.started = false;
+                UnityApplication.Stop();
+            }
 
 #if UNITY_EDITOR
-                EditorPrefs.SetString(PathKey, AssetDatabase.GetAssetPath(this));
+            EditorPrefs.SetString(PathKey, AssetDatabase.GetAssetPath(this));
 #endif
-                singleton = null;
-            }
+            singleton = null;
         }
 
         public bool TryAssignProgramType(Type newProgramType)
@@ -124,7 +131,10 @@ namespace UnityLibrary
                 programTypeName = newProgramType.AssemblyQualifiedName;
                 return true;
             }
-            else return false;
+            else
+            {
+                return false;
+            }
         }
 
         public bool TryAssignEditorSystemsType(Type newEditorSystemsType)
@@ -134,7 +144,10 @@ namespace UnityLibrary
                 editorSystemsTypeName = newEditorSystemsType.AssemblyQualifiedName;
                 return true;
             }
-            else return false;
+            else
+            {
+                return false;
+            }
         }
 
         [Conditional("DEBUG")]
@@ -142,12 +155,12 @@ namespace UnityLibrary
         {
             if (singleton == null)
             {
-                throw new($"UnityApplicationSettings singleton is missing");
+                throw new($"{nameof(UnityApplicationSettings)} singleton is missing");
             }
         }
 
 #if UNITY_EDITOR
-        private static UnityApplicationSettings GetOrCreateInstance()
+        internal static UnityApplicationSettings? FindSingleton()
         {
             if (EditorPrefs.HasKey(PathKey))
             {
@@ -160,40 +173,85 @@ namespace UnityLibrary
                 }
                 else
                 {
-                    UnityEngine.Debug.LogError($"UnityApplicationSettings asset not found at {path}, creating a new one");
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        UnityEngine.Debug.LogError($"Cached {nameof(UnityApplicationSettings)} asset not found at `{path}`, has it been deleted?");
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.LogError($"Cached {nameof(UnityApplicationSettings)} asset not found, has it been deleted?");
+                    }
                 }
             }
 
-            List<Object> preloadedAssets = PlayerSettings.GetPreloadedAssets().ToList();
+            // trim null entries first, then find an existing singleton asset
+            List<Object> preloadedAssets = new(PlayerSettings.GetPreloadedAssets());
+            bool trimmed = false;
+            for (int i = preloadedAssets.Count - 1; i >= 0; i--)
+            {
+                Object obj = preloadedAssets[i];
+                if (obj == null)
+                {
+                    preloadedAssets.RemoveAt(i);
+                    trimmed = true;
+                }
+            }
+
+            if (trimmed)
+            {
+                PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
+            }
+
             foreach (Object obj in preloadedAssets)
             {
-                if (obj != null && obj is UnityApplicationSettings existingSettings)
+                if (obj is UnityApplicationSettings existingSettings)
                 {
                     return existingSettings;
                 }
             }
 
-            string[] guids = AssetDatabase.FindAssets($"t:{typeof(UnityApplicationSettings).Name}");
+            // scan the project, and add it to preloaded assets
+            GUID[] guids = AssetDatabase.FindAssetGUIDs($"t:{typeof(UnityApplicationSettings).Name}");
             if (guids.Length > 0)
             {
-                foreach (string guid in guids)
+                foreach (GUID guid in guids)
                 {
-                    string path = AssetDatabase.GUIDToAssetPath(guid);
-                    UnityApplicationSettings existingSettings = AssetDatabase.LoadAssetAtPath<UnityApplicationSettings>(path);
-                    if (existingSettings != null)
-                    {
-                        preloadedAssets.Add(existingSettings);
-                        PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
-                        return existingSettings;
-                    }
+                    UnityApplicationSettings existingSettings = AssetDatabase.LoadAssetByGUID<UnityApplicationSettings>(guid);
+                    preloadedAssets.Add(existingSettings);
+                    PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
+                    return existingSettings;
                 }
             }
 
+            return null;
+        }
+
+        internal static UnityApplicationSettings CreateSingleton()
+        {
+            string currentPath = "Assets";
+            if (Selection.activeObject is Object selectedObject)
+            {
+                currentPath = AssetDatabase.GetAssetPath(selectedObject);
+                if (selectedObject is not DefaultAsset)
+                {
+                    int lastSlash = currentPath.LastIndexOf('/');
+                    currentPath = currentPath[..lastSlash];
+                }
+            }
+
+            currentPath += "/Unity Application Settings.asset";
+
+            // create new instance
             UnityApplicationSettings newInstance = CreateInstance<UnityApplicationSettings>();
-            AssetDatabase.CreateAsset(newInstance, "Assets/Settings.asset");
+            newInstance.addBuiltInSystems = true;
+            AssetDatabase.CreateAsset(newInstance, currentPath);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            UnityEngine.Debug.Log($"Created unity application settings asset", newInstance);
+            UnityEngine.Debug.Log($"Created unity application settings asset, please assign a program type", newInstance);
+            EditorGUIUtility.PingObject(newInstance);
+
+            // add to preloaded assets
+            List<Object> preloadedAssets = new(PlayerSettings.GetPreloadedAssets());
             preloadedAssets.Add(newInstance);
             PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
             return newInstance;

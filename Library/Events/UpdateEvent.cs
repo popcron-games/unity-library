@@ -5,11 +5,9 @@
     /// </summary>
     public readonly struct UpdateEvent
     {
-        public readonly double delta;
+        public readonly float delta;
 
-        public readonly float DeltaAsFloat => (float)delta;
-
-        public UpdateEvent(double delta)
+        public UpdateEvent(float delta)
         {
             this.delta = delta;
         }

@@ -2,11 +2,9 @@
 {
     public readonly struct PreUpdateEvent
     {
-        public readonly double delta;
+        public readonly float delta;
 
-        public readonly float DeltaAsFloat => (float)delta;
-
-        public PreUpdateEvent(double delta)
+        public PreUpdateEvent(float delta)
         {
             this.delta = delta;
         }
