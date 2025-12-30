@@ -6,7 +6,7 @@ This package provides boilerplate for organizing code in a tree of systems that 
 
 Use the following URL in Unity's package manager:
 ```
-https://github.com/popcron-games/unity-library.git
+https://github.com/popcron/unity-library.git
 ```
 
 ### Systems
