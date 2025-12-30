@@ -1,10 +1,8 @@
 #nullable enable
 using System;
 using UnityEngine;
-using System.Text;
 using System.Runtime.CompilerServices;
 using System.Reflection;
-using System.Collections.Generic;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -23,33 +21,11 @@ namespace UnityLibrary
 #endif
     public static class UnityApplication
     {
-#if UNITY_EDITOR
-        internal const string PlayFromStartKey = "playingFromStart";
-        private const string UnityEditorApplication = "UnityLibrary.Editor.EditorSystems, UnityLibrary.Editor";
-        private static readonly Type? unityEditorType = Type.GetType(UnityEditorApplication);
-#endif
         private static readonly VirtualMachine vm = new();
-        internal static IProgram? program;
         private static Type? editorSystemsType;
-        internal static bool started;
-
-        /// <summary>
-        /// Always <see cref="true"/> in builds.
-        /// <para>
-        /// When in editor, only <see cref="true"/> if playing from start with the custom play button.
-        /// </para>
-        /// </summary>
-        public static bool IsUnityPlayer
-        {
-            get
-            {
-#if UNITY_EDITOR
-                return EditorPrefs.GetBool(PlayFromStartKey);
-#else
-                return true;
-#endif
-            }
-        }
+        private static Type? runtimeSystemsType;
+        private static bool? addBuiltInSystems;
+        private static bool started;
 
         /// <summary>
         /// Singleton <see cref="VirtualMachine"/> instance that represents the <see cref="AppDomain"/> that was
@@ -88,102 +64,103 @@ namespace UnityLibrary
             }
         }
 
-        internal static void Start(UnityApplicationSettings settings)
+        public static bool TryStart(UnityApplicationSettings settings)
         {
-#if UNITY_EDITOR
+            if (!started)
+            {
+                started = true;
+                Start(settings);
+                return true;
+            }
+
+            return false;
+        }
+
+        public static bool TryStop()
+        {
+            if (started)
+            {
+                started = false;
+                Stop();
+                return true;
+            }
+
+            return false;
+        }
+
+        private static void Start(UnityApplicationSettings settings)
+        {
             // fail if program type is missing, this is needed
-            if (settings.ProgramType is null)
+            runtimeSystemsType = settings.RuntimeSystemsType;
+            if (runtimeSystemsType is null)
             {
-                List<Type> availableProgramTypes = new();
-                foreach (Type type in TypeCache.GetTypesDerivedFrom<IProgram>())
-                {
-                    if (type.IsPublic)
-                    {
-                        availableProgramTypes.Add(type);
-                    }
-                }
-
-                StringBuilder errorBuilder = new();
-                if (availableProgramTypes.Count > 0)
-                {
-                    errorBuilder.Append("Program type in unity application settings asset is missing. Available options are:\n");
-                    foreach (Type type in availableProgramTypes)
-                    {
-                        errorBuilder.Append(type.AssemblyQualifiedName);
-                        errorBuilder.Append('\n');
-                    }
-                }
-                else
-                {
-                    errorBuilder.Append($"No types found that implement {nameof(IProgram)}. Please create a struct type that implements it, and assign it to the unity application settings asset");
-                }
-
-                throw new(errorBuilder.ToString());
+                throw new InvalidOperationException($"Runtime systems type in {nameof(UnityApplicationSettings)} asset is missing");
             }
-
-            // fail if library editor systems cant be found, should never fail
-            if (unityEditorType is null)
-            {
-                throw new($"Expected editor systems type `{UnityEditorApplication}` not found");
-            }
-#else
-            // fail if program type is missing, this is needed
-            if (settings.ProgramType is null)
-            {
-                throw new($"Program type in {nameof(UnityApplicationSettings} asset is missing");
-            }
-#endif
 
 #if UNITY_EDITOR
-            unityEditorType.GetMethod("Start", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
+            editorSystemsType = settings.EditorSystemsType;
 #endif
-            program = (IProgram)Activator.CreateInstance(settings.ProgramType);
-            if (settings.AddBuiltInSystems)
+
+            addBuiltInSystems = settings.AddBuiltInSystems;
+            if (addBuiltInSystems == true)
             {
                 vm.AddSystem(new UnityLibrarySystems(vm));
             }
 
-            program.Start(vm);
-            editorSystemsType = AddEditorSystems(vm, settings);
+            AddSystem(vm, editorSystemsType);
+            AddSystem(vm, runtimeSystemsType);
         }
 
-        private static Type? AddEditorSystems(VirtualMachine vm, UnityApplicationSettings settings)
+        private static void Stop()
         {
-#if UNITY_EDITOR
-            Type? editorSystemsType = settings.EditorSystemsType;
-            if (editorSystemsType is not null)
+            RemoveSystem(vm, runtimeSystemsType);
+            RemoveSystem(vm, editorSystemsType);
+            if (addBuiltInSystems == true)
             {
+                addBuiltInSystems = null;
+                RemoveSystem(vm, typeof(UnityLibrarySystems));
+            }
+
+            runtimeSystemsType = null;
+            editorSystemsType = null;
+        }
+
+        public static void TryReinitialize(UnityApplicationSettings settings)
+        {
+            TryStop();
+            TryStart(settings);
+        }
+
+        private static void AddSystem(VirtualMachine vm, Type? systemType)
+        {
+            if (systemType is not null)
+            {
+                // construct with vm parameter if possible, otherwise use default constructor
                 object? editorSystem = null;
-                foreach (ConstructorInfo constructor in editorSystemsType.GetConstructors())
+                foreach (ConstructorInfo constructor in systemType.GetConstructors())
                 {
                     ParameterInfo[] parameters = constructor.GetParameters();
                     if (parameters.Length == 1 && parameters[0].ParameterType == typeof(VirtualMachine))
                     {
-                        editorSystem = Activator.CreateInstance(editorSystemsType, new object[] { vm });
+                        editorSystem = Activator.CreateInstance(systemType, new object[] { vm });
                         break;
                     }
                 }
 
                 if (editorSystem is null)
                 {
-                    editorSystem = Activator.CreateInstance(editorSystemsType);
+                    editorSystem = Activator.CreateInstance(systemType);
                 }
 
                 vm.AddSystem(editorSystem);
             }
-
-            return editorSystemsType;
-#else
-            return null;
-#endif
         }
 
-        private static void RemoveEditorSystems(VirtualMachine vm)
+        private static void RemoveSystem(VirtualMachine vm, Type? systemType)
         {
-#if UNITY_EDITOR
-            if (editorSystemsType is not null)
+            if (systemType is not null)
             {
-                if (vm.TryRemoveSystem(editorSystemsType, out object? editorSystem))
+                if (vm.TryRemoveSystem(systemType, out object? editorSystem))
                 {
                     if (editorSystem is IDisposable disposable)
                     {
@@ -191,33 +168,6 @@ namespace UnityLibrary
                     }
                 }
             }
-#endif
-        }
-
-        internal static void Reinitialize(UnityApplicationSettings settings)
-        {
-            if (started)
-            {
-                started = false;
-                Stop();
-            }
-
-            Start(settings);
-        }
-
-        internal static void Stop()
-        {
-            RemoveEditorSystems(vm);
-            program?.Finish(vm);
-#if UNITY_EDITOR
-            unityEditorType?.GetMethod("Stop", BindingFlags.Public | BindingFlags.Static).Invoke(null, new object[] { vm });
-#endif
-            if (vm.ContainsSystem<UnityLibrarySystems>())
-            {
-                vm.RemoveSystem<UnityLibrarySystems>().Dispose();
-            }
-
-            program = null;
         }
     }
 }

@@ -236,13 +236,10 @@ namespace UnityLibrary
                 listeners[i].Receive(this, ref e);
             }
 
-            if (e is not Validate)
+            IReadOnlyList<IAnyListener> broadcastListeners = systemRegistry.GetAllThatAre<IAnyListener>();
+            for (int i = 0; i < broadcastListeners.Count; i++)
             {
-                IReadOnlyList<IAnyListener> broadcastListeners = systemRegistry.GetAllThatAre<IAnyListener>();
-                for (int i = 0; i < broadcastListeners.Count; i++)
-                {
-                    broadcastListeners[i].Receive(this, ref e);
-                }
+                broadcastListeners[i].Receive(this, ref e);
             }
         }
 
@@ -258,13 +255,10 @@ namespace UnityLibrary
                 listeners[i].Receive(this, ref e);
             }
 
-            if (e is not Validate)
+            IReadOnlyList<IAnyListener> broadcastListeners = systemRegistry.GetAllThatAre<IAnyListener>();
+            for (int i = 0; i < broadcastListeners.Count; i++)
             {
-                IReadOnlyList<IAnyListener> broadcastListeners = systemRegistry.GetAllThatAre<IAnyListener>();
-                for (int i = 0; i < broadcastListeners.Count; i++)
-                {
-                    broadcastListeners[i].Receive(this, ref e);
-                }
+                broadcastListeners[i].Receive(this, ref e);
             }
         }
 

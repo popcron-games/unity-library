@@ -1,11 +1,11 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.LowLevel;
 using UnityEngine.PlayerLoop;
 using UnityLibrary.Events;
-using Action = System.Action;
 
 namespace UnityLibrary.Systems
 {
@@ -13,34 +13,42 @@ namespace UnityLibrary.Systems
     /// Dispatches events for Unity's update, fixed update, pre update and late update events (gui too).
     /// </summary>
     [DefaultExecutionOrder(int.MinValue + 11)]
-    public class UnityEventDispatcher : IDisposable
+    public class UnityEventDispatcher : SystemBase
     {
         public static readonly Type[] eventTypes;
 
         private static UnityEventDispatcher? instance;
-        private static GameObject? guiObject;
 
-        private readonly VirtualMachine vm;
-        private readonly List<HashSet<Action>> callbacks = new();
+        private readonly List<SubsystemCallback> callbacks = new();
 
         static UnityEventDispatcher()
         {
             eventTypes = new Type[]
             {
-                typeof(UpdateEvent),
-                typeof(FixedUpdateEvent),
-                typeof(PreUpdateEvent),
-                typeof(LateUpdateEvent),
-                typeof(GUIEvent),
                 typeof(ApplicationStarted),
-                typeof(ApplicationStopped)
+                typeof(ApplicationStopped),
+                typeof(FixedUpdateEvent),
+                typeof(LateUpdateEvent),
+                typeof(PreUpdateEvent),
+                typeof(UpdateEvent),
             };
         }
 
-        public UnityEventDispatcher(VirtualMachine vm)
+        public UnityEventDispatcher(VirtualMachine vm) : base(vm)
         {
+            ThrowIfAlreadyInitialized();
             instance = this;
-            this.vm = vm;
+            RegisterCallbacks();
+        }
+
+        public override void Dispose()
+        {
+            UnregisterCallbacks();
+            instance = null;
+        }
+
+        private void RegisterCallbacks()
+        {
             PlayerLoopSystem playerLoopSystem = PlayerLoop.GetCurrentPlayerLoop();
             PlayerLoopSystem[] systems = playerLoopSystem.subSystemList;
             for (int i = 0; i < systems.Length; i++)
@@ -48,62 +56,50 @@ namespace UnityLibrary.Systems
                 ref PlayerLoopSystem system = ref systems[i];
                 if (system.type == typeof(Update))
                 {
-                    InsertCallback(ref system, Update);
+                    int index = system.AddCallback(Update);
+                    callbacks.Add(new SubsystemCallback(system.type, index));
                 }
                 else if (system.type == typeof(FixedUpdate))
                 {
-                    InsertCallback(ref system, FixedUpdate);
+                    int index = system.AddCallback(FixedUpdate);
+                    callbacks.Add(new SubsystemCallback(system.type, index));
                 }
                 else if (system.type == typeof(PreUpdate))
                 {
-                    InsertCallback(ref system, PreUpdate);
+                    int index = system.AddCallback(PreUpdate);
+                    callbacks.Add(new SubsystemCallback(system.type, index));
                 }
                 else if (system.type == typeof(PostLateUpdate))
                 {
-                    InsertCallback(ref system, PostLateUpdate);
+                    int index = system.AddCallback(PostLateUpdate);
+                    callbacks.Add(new SubsystemCallback(system.type, index));
                 }
             }
 
             playerLoopSystem.subSystemList = systems;
             PlayerLoop.SetPlayerLoop(playerLoopSystem);
-
-            Application.quitting += () =>
-            {
-                vm.Broadcast(new ApplicationStopped());
-                UnityEngine.Object.DestroyImmediate(guiObject);
-            };
         }
 
-        public void Dispose()
+        private void UnregisterCallbacks()
         {
-            for (int i = 0; i < callbacks.Count; i++)
+            PlayerLoopSystem playerLoopSystem = PlayerLoop.GetCurrentPlayerLoop();
+            PlayerLoopSystem[] systems = playerLoopSystem.subSystemList;
+            foreach (SubsystemCallback callback in callbacks)
             {
-                HashSet<Action> callback = callbacks[i];
-                callback.Clear();
-            }
-        }
-
-        private void InsertCallback(ref PlayerLoopSystem system, Action function)
-        {
-            List<PlayerLoopSystem> subsystemList = new(system.subSystemList);
-            PlayerLoopSystem callbackSystem = default;
-            callbackSystem.type = typeof(UnityEventDispatcher);
-
-            HashSet<Action> callbacks = new();
-            callbacks.Add(function);
-
-            Action callback = () =>
-            {
-                foreach (Action callback in callbacks)
+                for (int i = 0; i < systems.Length; i++)
                 {
-                    callback.Invoke();
+                    ref PlayerLoopSystem system = ref systems[i];
+                    if (system.type == callback.systemType)
+                    {
+                        system.RemoveCallback(callback.index);
+                        break;
+                    }
                 }
-            };
+            }
 
-            callbackSystem.updateDelegate = new(callback);
-            subsystemList.Add(callbackSystem);
-            system.subSystemList = subsystemList.ToArray();
-            this.callbacks.Add(callbacks);
+            playerLoopSystem.subSystemList = systems;
+            PlayerLoop.SetPlayerLoop(playerLoopSystem);
+            callbacks.Clear();
         }
 
         private void Update()
@@ -129,29 +125,34 @@ namespace UnityLibrary.Systems
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ApplicationStarted()
         {
-            guiObject = CreateGUIObject();
             if (instance is not null)
             {
                 instance.vm.Broadcast(new ApplicationStarted());
+                Application.quitting += () =>
+                {
+                    instance?.vm.Broadcast(new ApplicationStopped());
+                };
             }
         }
 
-        private static GameObject CreateGUIObject()
+        [Conditional("DEBUG")]
+        private static void ThrowIfAlreadyInitialized()
         {
-            GameObject obj = new(nameof(GUIEventDispatcher), typeof(GUIEventDispatcher));
-            obj.hideFlags = HideFlags.HideAndDontSave;
-            UnityEngine.Object.DontDestroyOnLoad(obj);
-            return obj;
+            if (instance is not null)
+            {
+                throw new InvalidOperationException($"An instance of {nameof(UnityEventDispatcher)} is already initialized");
+            }
         }
 
-        public class GUIEventDispatcher : MonoBehaviour
+        private readonly struct SubsystemCallback
         {
-            private void OnGUI()
+            public readonly Type systemType;
+            public readonly int index;
+
+            public SubsystemCallback(Type systemType, int index)
             {
-                if (instance is not null)
-                {
-                    instance.vm.Broadcast(new GUIEvent());
-                }
+                this.systemType = systemType;
+                this.index = index;
             }
         }
     }

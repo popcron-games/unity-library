@@ -2,11 +2,8 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Assertions;
 using Object = UnityEngine.Object;
-using UnityLibrary.Events;
 using System.Diagnostics;
-
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -18,11 +15,11 @@ namespace UnityLibrary
     /// Singleton asset accessible from anywhere, containing assets needed for the application to run.
     /// </summary>
     [ExecuteAlways, DefaultExecutionOrder(int.MaxValue)]
-    public sealed class UnityApplicationSettings : ScriptableObject, IListener<Validate>
+    public sealed class UnityApplicationSettings : ScriptableObject
     {
         private const string PathKey = nameof(UnityApplicationSettings) + ".path";
         internal const string EditorSystemsTypeNameKey = nameof(editorSystemsTypeName);
-        internal const string ProgramTypeNameKey = nameof(programTypeName);
+        internal const string RuntimeSystemsTypeNameKey = nameof(runtimeSystemsTypeName);
         internal const string AddBuiltInSystemsKey = nameof(addBuiltInSystems);
 
         internal static UnityApplicationSettings? singleton;
@@ -50,7 +47,7 @@ namespace UnityLibrary
         }
 
         [SerializeField]
-        private string? programTypeName;
+        private string? runtimeSystemsTypeName;
 
         [SerializeField]
         private string? editorSystemsTypeName;
@@ -59,23 +56,23 @@ namespace UnityLibrary
         private bool addBuiltInSystems;
 
         /// <summary>
-        /// The <see cref="IProgram"/> type to use when <see cref="UnityApplication"/> creates its virtual machine.
+        /// Systems added to the virtual machine at runtime and in the editor.
         /// </summary>
-        public Type? ProgramType
+        public Type? RuntimeSystemsType
         {
             get
             {
-                if (string.IsNullOrEmpty(programTypeName))
+                if (string.IsNullOrEmpty(runtimeSystemsTypeName))
                 {
                     return null;
                 }
 
-                return Type.GetType(programTypeName);
+                return Type.GetType(runtimeSystemsTypeName);
             }
         }
 
         /// <summary>
-        /// The editor only seems type.
+        /// Systems added to the virtual machine only in the editor.
         /// </summary>
         public Type? EditorSystemsType
         {
@@ -91,63 +88,23 @@ namespace UnityLibrary
         }
 
         /// <summary>
-        /// Controls whether the <see cref="UnityLibrarySystems"/> should be added by default.
+        /// Whether or not <see cref="UnityLibrarySystems"/> should be added automatically.
         /// </summary>
         public bool AddBuiltInSystems => addBuiltInSystems;
-
-        void IListener<Validate>.Receive(VirtualMachine vm, ref Validate e)
-        {
-            Assert.IsNotNull(ProgramType, $"Program type is null, please set it in the singleton {nameof(UnityApplicationSettings)} asset");
-        }
 
         private void OnEnable()
         {
             singleton = this;
-            if (!UnityApplication.started)
-            {
-                UnityApplication.started = true;
-                UnityApplication.Start(this);
-            }
+            UnityApplication.TryStart(this);
         }
 
         private void OnDisable()
         {
-            if (UnityApplication.started)
-            {
-                UnityApplication.started = false;
-                UnityApplication.Stop();
-            }
-
+            UnityApplication.TryStop();
 #if UNITY_EDITOR
             EditorPrefs.SetString(PathKey, AssetDatabase.GetAssetPath(this));
 #endif
             singleton = null;
-        }
-
-        public bool TryAssignProgramType(Type newProgramType)
-        {
-            if (programTypeName != newProgramType.AssemblyQualifiedName)
-            {
-                programTypeName = newProgramType.AssemblyQualifiedName;
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        public bool TryAssignEditorSystemsType(Type newEditorSystemsType)
-        {
-            if (editorSystemsTypeName != newEditorSystemsType.AssemblyQualifiedName)
-            {
-                editorSystemsTypeName = newEditorSystemsType.AssemblyQualifiedName;
-                return true;
-            }
-            else
-            {
-                return false;
-            }
         }
 
         [Conditional("DEBUG")]
@@ -160,13 +117,13 @@ namespace UnityLibrary
         }
 
 #if UNITY_EDITOR
-        internal static UnityApplicationSettings? FindSingleton()
+        public static UnityApplicationSettings? FindSingleton()
         {
             if (EditorPrefs.HasKey(PathKey))
             {
                 string path = EditorPrefs.GetString(PathKey);
                 EditorPrefs.DeleteKey(PathKey);
-                UnityApplicationSettings existingSettings = AssetDatabase.LoadAssetAtPath<UnityApplicationSettings>(path);
+                UnityApplicationSettings? existingSettings = AssetDatabase.LoadAssetAtPath<UnityApplicationSettings>(path);
                 if (existingSettings != null)
                 {
                     return existingSettings;
@@ -189,8 +146,7 @@ namespace UnityLibrary
             bool trimmed = false;
             for (int i = preloadedAssets.Count - 1; i >= 0; i--)
             {
-                Object obj = preloadedAssets[i];
-                if (obj == null)
+                if (preloadedAssets[i] == null)
                 {
                     preloadedAssets.RemoveAt(i);
                     trimmed = true;
@@ -211,7 +167,7 @@ namespace UnityLibrary
             }
 
             // scan the project, and add it to preloaded assets
-            GUID[] guids = AssetDatabase.FindAssetGUIDs($"t:{typeof(UnityApplicationSettings).Name}");
+            GUID[] guids = AssetDatabase.FindAssetGUIDs($"t:{nameof(UnityApplicationSettings)}");
             if (guids.Length > 0)
             {
                 foreach (GUID guid in guids)
@@ -255,6 +211,12 @@ namespace UnityLibrary
             preloadedAssets.Add(newInstance);
             PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
             return newInstance;
+        }
+#else
+        [Obsolete("Not available in builds", true)]
+        public static UnityApplicationSettings? FindSingleton()
+        {
+            return null;
         }
 #endif
     }

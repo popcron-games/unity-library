@@ -6,6 +6,7 @@ namespace UnityLibrary
     /// <summary>
     /// Represents the constructor and <see cref="IDisposable.Dispose"/> events of a <see cref="VirtualMachine"/>.
     /// </summary>
+    [Obsolete]
     public interface IProgram
     {
         /// <summary>

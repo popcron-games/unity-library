@@ -9,19 +9,9 @@ namespace UnityLibrary
     /// <summary>
     /// Allows for efficient retrieval of instances by type.
     /// </summary>
-    public class Registry : IRegistry
+    public class Registry
     {
         private static readonly Dictionary<Type, HashSet<Type>> typeToAssignableTypes = new();
-
-        /// <summary>
-        /// Called when an object is registered, happens during <c>OnEnable</c>.
-        /// </summary>
-        public Action<object>? onRegistered;
-
-        /// <summary>
-        /// Called when an object is unregistered, happens during <c>OnDisable</c>.
-        /// </summary>
-        public Action<object>? onUnregistered;
 
         private readonly List<object> objects = new();
         private readonly Dictionary<Type, ArrayList> assignableTypeToObjects = new();
@@ -92,51 +82,47 @@ namespace UnityLibrary
             objects.Add(value);
             foreach (Type assignableType in GetAssignableTypes(value.GetType()))
             {
-                if (assignableTypeToObjects.TryGetValue(assignableType, out ArrayList? objects))
-                {
-                    objects.Add(value);
-                }
-                else
+                if (!assignableTypeToObjects.TryGetValue(assignableType, out ArrayList? objects))
                 {
                     objects = new ArrayList();
-                    objects.Add(value);
                     assignableTypeToObjects.Add(assignableType, objects);
                 }
-            }
 
-            OnRegistered(value);
+                // add to objects list
+                if (objects.count == objects.capacity)
+                {
+                    objects.capacity *= 2;
+                    Array.Resize(ref objects.array, objects.capacity);
+                }
+
+                objects.array[objects.count++] = value;
+            }
         }
 
         private void Remove(object value)
         {
-            OnUnregistered(value);
             Type type = value.GetType();
-            if (typeToAssignableTypes.TryGetValue(type, out _))
+            foreach (Type assignableType in GetAssignableTypes(type))
             {
-                foreach (Type assignableType in GetAssignableTypes(type))
+                if (assignableTypeToObjects.TryGetValue(assignableType, out ArrayList? objects))
                 {
-                    if (assignableTypeToObjects.TryGetValue(assignableType, out ArrayList? objects))
+                    // remove from objects list
+                    objects.ThrowIfNotContained(value);
+                    int index = Array.IndexOf(objects.array, value, 0, objects.count);
+                    objects.count--;
+                    if (index < objects.count)
                     {
-                        objects.Remove(value);
-                        if (objects.Count == 0)
-                        {
-                            assignableTypeToObjects.Remove(assignableType);
-                        }
+                        Array.Copy(objects.array, index + 1, objects.array, index, objects.count - index);
+                    }
+
+                    if (objects.count == 0)
+                    {
+                        assignableTypeToObjects.Remove(assignableType);
                     }
                 }
             }
 
             objects.Remove(value);
-        }
-
-        protected virtual void OnRegistered(object value)
-        {
-            onRegistered?.Invoke(value);
-        }
-
-        protected virtual void OnUnregistered(object value)
-        {
-            onUnregistered?.Invoke(value);
         }
 
         /// <summary>
@@ -168,16 +154,15 @@ namespace UnityLibrary
         /// <para></para>
         /// They either implement it if it's an interface, or are a subtype if a class.
         /// </summary>
-        public IReadOnlyList<T> GetAllThatAre<T>()
+        public ReadOnlyList<T> GetAllThatAre<T>()
         {
-            Type type = typeof(T);
-            if (assignableTypeToObjects.TryGetValue(type, out ArrayList objects))
+            if (assignableTypeToObjects.TryGetValue(typeof(T), out ArrayList objects))
             {
-                return objects.AsReadOnlyList<T>();
+                return new ReadOnlyList<T>(objects);
             }
             else
             {
-                return Array.Empty<T>();
+                return ReadOnlyList<T>.Empty;
             }
         }
 
@@ -205,7 +190,7 @@ namespace UnityLibrary
         {
             if (assignableTypeToObjects.TryGetValue(typeof(T), out ArrayList? objects))
             {
-                foundValue = (T)objects[0];
+                foundValue = (T)objects.array[0];
                 return true;
             }
 
@@ -220,7 +205,7 @@ namespace UnityLibrary
         {
             if (assignableTypeToObjects.TryGetValue(type, out ArrayList? objects))
             {
-                foundValue = objects[0];
+                foundValue = objects.array[0];
                 return true;
             }
 
@@ -236,8 +221,7 @@ namespace UnityLibrary
         public T GetFirst<T>() where T : notnull
         {
             ThrowIfNone(typeof(T));
-            ArrayList? objects = assignableTypeToObjects[typeof(T)];
-            return (T)objects[0];
+            return (T)assignableTypeToObjects[typeof(T)].array[0];
         }
 
         /// <summary>
@@ -248,8 +232,7 @@ namespace UnityLibrary
         public object GetFirst(Type type)
         {
             ThrowIfNone(type);
-            ArrayList? objects = assignableTypeToObjects[type];
-            return objects[0];
+            return assignableTypeToObjects[type].array[0];
         }
 
         [Conditional("DEBUG")]
