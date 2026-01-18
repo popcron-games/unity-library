@@ -1,10 +1,10 @@
 {
-  "name": "com.popcron-games.unity-library",
-  "version": "1.4.0",
+  "name": "com.popcron.unity-library",
+  "version": "1.4.1",
   "description": "A simple framework for Unity.",
   "author": {
-    "name": "popcron-games",
-    "url": "https://github.com/popcron-games/unity-library"
+    "name": "popcron",
+    "url": "https://github.com/popcron/unity-library"
   },
   "displayName": "Unity Library",
   "type": "library",

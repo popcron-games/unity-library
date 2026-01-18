@@ -143,21 +143,6 @@ namespace UnityLibrary
 
             // trim null entries first, then find an existing singleton asset
             List<Object> preloadedAssets = new(PlayerSettings.GetPreloadedAssets());
-            bool trimmed = false;
-            for (int i = preloadedAssets.Count - 1; i >= 0; i--)
-            {
-                if (preloadedAssets[i] == null)
-                {
-                    preloadedAssets.RemoveAt(i);
-                    trimmed = true;
-                }
-            }
-
-            if (trimmed)
-            {
-                PlayerSettings.SetPreloadedAssets(preloadedAssets.ToArray());
-            }
-
             foreach (Object obj in preloadedAssets)
             {
                 if (obj is UnityApplicationSettings existingSettings)

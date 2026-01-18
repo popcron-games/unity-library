@@ -267,7 +267,7 @@ namespace UnityLibrary
         {
             if (disposed)
             {
-                throw new ObjectDisposedException("Virtual machine is disposed");
+                throw new ObjectDisposedException("Virtual machine has been disposed");
             }
         }
 
